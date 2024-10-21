@@ -2,6 +2,7 @@
 #include "credentials.h"
 #include "HTTPClient.h"
 #include "WiFi.h"
+#include "otaUpdate.h"
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
@@ -21,6 +22,9 @@ void setup()
     delay(1000);
   }
   Serial.println("connected");
+
+  // getFileFromServer();
+  // performOTAUpdateFromSPIFFS();
 
   configTzTime(TZ_INFO, NTP_SERVER);
   getLocalTime(&timeinfo);

@@ -7,7 +7,7 @@
 
 // Define server details and file path
 #define HOST "raw.githubusercontent.com"
-#define PATH "/vi-ct-or/ESP32_Dashboard/blob/develop/ESP32_Dashboard/.pio/build/esp32dev/firmware.bin"
+#define PATH "/vi-ct-or/ESP32_Dashboard/refs/heads/develop/.pio/build/esp32dev/firmware.bin"
 #define PORT 443
 
 // Define the name for the downloaded firmware file
@@ -26,6 +26,7 @@ void getFileFromServer()
         client.println("Connection: close\r\n");               // Close connection after response
         client.println();                                      // Send an empty line to indicate end of request headers
 
+        SPIFFS.begin(true);
         File file = SPIFFS.open("/" + String(FILE_NAME), FILE_WRITE); // Open file in SPIFFS for writing
         if (!file)
         {
