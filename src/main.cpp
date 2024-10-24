@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include "credentials.h"
-#include "HTTPClient.h"
 #include "WiFi.h"
 #include "otaUpdate.h"
+#include "strava.h"
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
@@ -28,6 +28,8 @@ void setup()
 
   configTzTime(TZ_INFO, NTP_SERVER);
   getLocalTime(&timeinfo);
+
+  getLastActivitieDist();
 }
 
 void loop()
