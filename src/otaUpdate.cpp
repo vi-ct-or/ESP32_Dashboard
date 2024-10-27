@@ -2,36 +2,121 @@
 #include <SPIFFS.h>
 #include "Update.h"
 #include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include "nvs_flash.h"
+#include "nvs.h"
 
 #include "otaUpdate.h"
 
 // Define server details and file path
 #define HOST "raw.githubusercontent.com"
-#define PATH "/vi-ct-or/ESP32_Dashboard/refs/heads/develop/.pio/build/esp32dev/firmware.bin"
+#define PATH_FW "/vi-ct-or/ESP32_Dashboard/refs/heads/develop/.pio/build/esp32dev/firmware.bin"
+#define PATH_Version "https://raw.githubusercontent.com/vi-ct-or/ESP32_Dashboard/refs/heads/develop/version.txt"
 #define PORT 443
 
 // Define the name for the downloaded firmware file
 #define FILE_NAME "firmware.bin"
 
-void getFileFromServer()
+bool getFileFromServer();
+bool performOTAUpdateFromSPIFFS();
+uint8_t getVersion();
+
+void updateFW()
 {
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        // NVS partition was truncated and needs to be erased
+        Serial.print("error init nvs flash : ");
+        Serial.println(err);
+        // Retry nvs_flash_init
+        err = nvs_flash_init();
+    }
+
+    nvs_handle_t my_handle;
+    err = nvs_open("storage", NVS_READWRITE, &my_handle);
+    if (err != ESP_OK)
+    {
+        Serial.print("Error opening NVS handle!");
+        Serial.println(esp_err_to_name(err));
+    }
+    uint8_t currentVersion = 0; // value will default to 0, if not set yet in NVS
+    err = nvs_get_u8(my_handle, "currentVersion", &currentVersion);
+    switch (err)
+    {
+    case ESP_OK:
+        break;
+    case ESP_ERR_NVS_NOT_FOUND:
+        Serial.print("The value is not initialized yet!\n");
+        break;
+    default:
+        Serial.print("Error nvs get u8!");
+        Serial.println(esp_err_to_name(err));
+    }
+
+    uint8_t newVersion = getVersion();
+    Serial.print("Current Version :");
+    Serial.println(currentVersion);
+    Serial.print("New Version :");
+    Serial.println(newVersion);
+    if (newVersion > currentVersion)
+    {
+        if (getFileFromServer())
+        {
+            if (performOTAUpdateFromSPIFFS())
+            {
+                err = nvs_set_u8(my_handle, "currentVersion", newVersion);
+                Serial.println((err != ESP_OK) ? "nvs_set_u8 Failed!" : "nvs_set_u8 Done");
+                Serial.print("Committing updates in NVS ... ");
+                err = nvs_commit(my_handle);
+                Serial.println((err != ESP_OK) ? "nvs_commit Failed!" : "nvs_commit Done");
+
+                // Close
+                nvs_close(my_handle);
+            }
+        }
+
+        Serial.println("Reset in 4 seconds....");
+        delay(4000);
+        ESP.restart(); // Restart ESP32 to apply the update
+    }
+}
+
+uint8_t getVersion()
+{
+    uint8_t version = 0;
+    HTTPClient http;
+    http.begin(PATH_Version);
+    int httpResponse = http.GET();
+    if (httpResponse == 200)
+    {
+        version = (uint8_t)http.getString().toInt();
+    }
+
+    http.end();
+    return version;
+}
+
+bool getFileFromServer()
+{
+    bool l_ret = false;
     WiFiClientSecure client;
     client.setInsecure(); // Set client to allow insecure connections
 
     if (client.connect(HOST, PORT))
     { // Connect to the server
         Serial.println("Connected to server");
-        client.print("GET " + String(PATH) + " HTTP/1.1\r\n"); // Send HTTP GET request
-        client.print("Host: " + String(HOST) + "\r\n");        // Specify the host
-        client.println("Connection: close\r\n");               // Close connection after response
-        client.println();                                      // Send an empty line to indicate end of request headers
+        client.print("GET " + String(PATH_FW) + " HTTP/1.1\r\n"); // Send HTTP GET request
+        client.print("Host: " + String(HOST) + "\r\n");           // Specify the host
+        client.println("Connection: close\r\n");                  // Close connection after response
+        client.println();                                         // Send an empty line to indicate end of request headers
 
         SPIFFS.begin(true);
         File file = SPIFFS.open("/" + String(FILE_NAME), FILE_WRITE); // Open file in SPIFFS for writing
         if (!file)
         {
             Serial.println("Failed to open file for writing");
-            return;
+            return false;
         }
 
         bool endOfHeaders = false;
@@ -72,21 +157,25 @@ void getFileFromServer()
         file.close();  // Close the file
         client.stop(); // Close the client connection
         Serial.println("File saved successfully");
+        l_ret = true;
     }
     else
     {
         Serial.println("Failed to connect to server");
+        l_ret = false;
     }
+    return l_ret;
 }
 
-void performOTAUpdateFromSPIFFS()
+bool performOTAUpdateFromSPIFFS()
 {
+    bool l_ret = false;
     // Open the firmware file in SPIFFS for reading
     File file = SPIFFS.open("/" + String(FILE_NAME), FILE_READ);
     if (!file)
     {
         Serial.println("Failed to open file for reading");
-        return;
+        return false;
     }
 
     Serial.println("Starting update..");
@@ -97,7 +186,7 @@ void performOTAUpdateFromSPIFFS()
     if (!Update.begin(fileSize, U_FLASH))
     {
         Serial.println("Cannot do the update");
-        return;
+        return false;
     }
 
     // Write firmware data from file to OTA update
@@ -107,15 +196,15 @@ void performOTAUpdateFromSPIFFS()
     if (Update.end())
     {
         Serial.println("Successful update");
+        l_ret = true;
     }
     else
     {
         Serial.println("Error Occurred:" + String(Update.getError()));
-        return;
+        return false;
     }
 
     file.close(); // Close the file
-    Serial.println("Reset in 4 seconds....");
-    delay(4000);
-    ESP.restart(); // Restart ESP32 to apply the update
+
+    return l_ret;
 }

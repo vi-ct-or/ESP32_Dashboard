@@ -23,13 +23,11 @@ void setup()
   }
   Serial.println("connected");
 
-  // getFileFromServer();
-  // performOTAUpdateFromSPIFFS();
-
+  updateFW();
   configTzTime(TZ_INFO, NTP_SERVER);
   getLocalTime(&timeinfo);
 
-  getLastActivitieDist();
+  // getLastActivitieDist();
 }
 
 void loop()
