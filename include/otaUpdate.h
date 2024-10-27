@@ -1,2 +1,1 @@
-void getFileFromServer();
-void performOTAUpdateFromSPIFFS();
+void updateFW();
