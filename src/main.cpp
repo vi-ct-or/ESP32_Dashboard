@@ -23,11 +23,11 @@ void setup()
   }
   Serial.println("connected");
 
-  updateFW();
+  // updateFW();
   configTzTime(TZ_INFO, NTP_SERVER);
   getLocalTime(&timeinfo);
 
-  // getLastActivitieDist();
+  test();
 }
 
 void loop()
