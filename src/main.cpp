@@ -3,12 +3,13 @@
 #include "WiFi.h"
 #include "otaUpdate.h"
 #include "strava.h"
+#include "webServer.h"
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
 // your time zone (https://remotemonitoringsystems.ca/time-zone-abbreviations.php)
 const char *TZ_INFO = "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00";
-tm timeinfo;
+struct tm timeinfo1;
 
 void setup()
 {
@@ -25,11 +26,14 @@ void setup()
 
   // updateFW();
   configTzTime(TZ_INFO, NTP_SERVER);
-  getLocalTime(&timeinfo);
+  while (!getLocalTime(&timeinfo1))
+    ;
 
   test();
+  // initWebServer();
 }
 
 void loop()
 {
+  // cyclicTask();
 }
