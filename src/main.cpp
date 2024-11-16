@@ -3,7 +3,7 @@
 #include "WiFi.h"
 #include "otaUpdate.h"
 #include "strava.h"
-#include "webServer.h"
+#include "display.h"
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
@@ -24,16 +24,16 @@ void setup()
   }
   Serial.println("connected");
 
-  // updateFW();
   configTzTime(TZ_INFO, NTP_SERVER);
   while (!getLocalTime(&timeinfo1))
     ;
-
-  test();
-  // initWebServer();
+  initDisplay();
+  // updateFW();
+  displayTime(&timeinfo1);
+  populateDB();
+  displayStrava();
 }
 
 void loop()
 {
-  // cyclicTask();
 }

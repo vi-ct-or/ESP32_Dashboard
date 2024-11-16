@@ -9,6 +9,8 @@ typedef struct sDistDay
 {
     uint16_t distRun;
     uint16_t distBike;
+    // uint32_t timeRun;
+    // uint32_t timeBike;
     uint16_t climbRun;
     uint16_t climbBike;
 } TsDistDay;
@@ -148,13 +150,19 @@ int8_t getLastActivitieDist(time_t start, time_t end)
         {
             Serial.println("no error");
             JsonArray array = doc.as<JsonArray>();
-            lastDayPopulate = end;
             for (JsonVariant v : array)
             {
                 struct tm tm;
                 timeStringToTm(v["start_date"].as<const char *>(), &tm);
                 TeActivityType activityType = getActivityType(v["type"].as<const char *>());
-                mktime(&tm);
+                time_t activityStartTime = mktime(&tm);
+                time_t elapsedTime = v["elapsed_time"].as<int>();
+                Serial.print("activity start timestamp : ");
+                Serial.println(activityStartTime);
+                if (activityStartTime + elapsedTime > lastDayPopulate)
+                {
+                    lastDayPopulate = activityStartTime + elapsedTime + 1;
+                }
 
                 switch (activityType)
                 {
@@ -267,6 +275,9 @@ void populateDB(void)
     // memset(lastYear, 0, sizeof(lastYear));
     // memset(thisYear, 0, sizeof(thisYear));
     // lastDayPopulate = 0;
+    // lastDayPopulate = 1731742497;
+    // thisYear[320].climbBike = 0;
+    // thisYear[320].distBike = 0;
 
     struct tm tmpTm;
     time_t startTimestamp, endTimestamp;
