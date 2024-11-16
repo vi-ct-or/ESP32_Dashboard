@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include "nvs_flash.h"
 #include "nvs.h"
+#include "display.h"
 
 #include "otaUpdate.h"
 
@@ -61,6 +62,7 @@ void updateFW()
     Serial.println(newVersion);
     if (newVersion > currentVersion)
     {
+        displayText("Updating firmware...");
         if (getFileFromServer())
         {
             if (performOTAUpdateFromSPIFFS())
@@ -75,9 +77,9 @@ void updateFW()
                 nvs_close(my_handle);
             }
         }
-
-        Serial.println("Reset in 4 seconds....");
-        delay(4000);
+        displayText("Reboot in 5s...");
+        Serial.println("Reset in 5 seconds....");
+        delay(5000);
         ESP.restart(); // Restart ESP32 to apply the update
     }
 }
@@ -118,7 +120,7 @@ bool getFileFromServer()
             Serial.println("Failed to open file for writing");
             return false;
         }
-
+        displayText("Downloading new firmware...");
         bool endOfHeaders = false;
         String headers = "";
         String http_response_code = "error";
@@ -157,11 +159,13 @@ bool getFileFromServer()
         file.close();  // Close the file
         client.stop(); // Close the client connection
         Serial.println("File saved successfully");
+        displayText("Download successful");
         l_ret = true;
     }
     else
     {
         Serial.println("Failed to connect to server");
+        displayText("Download failed");
         l_ret = false;
     }
     return l_ret;
@@ -179,6 +183,7 @@ bool performOTAUpdateFromSPIFFS()
     }
 
     Serial.println("Starting update..");
+    displayText("Starting update");
     size_t fileSize = file.size(); // Get the file size
     Serial.println(fileSize);
 
@@ -196,11 +201,13 @@ bool performOTAUpdateFromSPIFFS()
     if (Update.end())
     {
         Serial.println("Successful update");
+        displayText("Update successful");
         l_ret = true;
     }
     else
     {
         Serial.println("Error Occurred:" + String(Update.getError()));
+        displayText("Update failed");
         return false;
     }
 

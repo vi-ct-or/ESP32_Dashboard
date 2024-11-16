@@ -33,23 +33,53 @@ void displayTime(struct tm *now)
     display.setCursor(0, 0);
     display.print(now->tm_hour);
     display.print(":");
-    display.println(now->tm_min);
+    if (now->tm_min < 10)
+    {
+        display.print("0");
+    }
+    display.print(now->tm_min);
+    display.print("  -  ");
+    if (now->tm_mday < 10)
+    {
+        display.print("0");
+    }
+    display.print(now->tm_mday);
+    display.print("/");
+    if (now->tm_mon < 10)
+    {
+        display.print("0");
+    }
+    display.print(now->tm_mon);
+    display.print("/");
+    display.println(now->tm_year + 1900);
     display.display();
 }
 
 void displayStrava()
 {
-    display.setCursor(0, 10);
-    display.println("2024");
+    display.setCursor(0, 20);
+    display.println("2024          2023");
     // display.print("Total run : ");
     display.print((int)getTotal(ACTIVITY_TYPE_RUN, false, 1, true));
+    display.print("km        ");
+    display.print((int)getTotal(ACTIVITY_TYPE_RUN, false, 0, true));
     display.println("km");
     // display.print(getTotal(ACTIVITY_TYPE_RUN, true, 1, true));
     // display.println("m d+");
     // display.print("Total bike : ");
     display.print((int)getTotal(ACTIVITY_TYPE_BIKE, false, 1, true));
+    display.print("km       ");
+    display.print((int)getTotal(ACTIVITY_TYPE_BIKE, false, 0, true));
     display.println("km");
     // display.print(getTotal(ACTIVITY_TYPE_BIKE, true, 1, true));
     // display.println("m d+");
+
+    display.println("oui!");
+    display.display();
+}
+
+void displayText(const char msg[])
+{
+    display.println(msg);
     display.display();
 }

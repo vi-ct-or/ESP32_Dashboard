@@ -14,6 +14,7 @@ struct tm timeinfo1;
 void setup()
 {
   Serial.begin(9600);
+  initDisplay();
 
   WiFi.begin(wifiSsid, wifiPswd);
   Serial.print("Connecting to WiFi ..");
@@ -23,12 +24,12 @@ void setup()
     delay(1000);
   }
   Serial.println("connected");
+  displayText("Connected to wifi");
 
   configTzTime(TZ_INFO, NTP_SERVER);
   while (!getLocalTime(&timeinfo1))
     ;
-  initDisplay();
-  // updateFW();
+  updateFW();
   displayTime(&timeinfo1);
   populateDB();
   displayStrava();
