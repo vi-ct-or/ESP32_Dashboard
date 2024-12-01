@@ -120,7 +120,7 @@ bool getFileFromServer()
             Serial.println("Failed to open file for writing");
             return false;
         }
-        displayText("Downloading new firmware...");
+        displayText("Downloading new FW");
         bool endOfHeaders = false;
         String headers = "";
         String http_response_code = "error";
