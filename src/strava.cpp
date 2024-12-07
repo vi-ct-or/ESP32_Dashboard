@@ -5,6 +5,7 @@
 #include <string.h>
 #include <Preferences.h>
 #include "strava.h"
+#include "Arduino.h"
 
 typedef struct sDistDay
 {
@@ -28,6 +29,7 @@ uint64_t lastActivitiesId[10];
 time_t lastDayPopulate;
 struct tm timeinfo;
 Preferences preferences;
+std::string lastPolyline; // = "qhcxGgxag@rBiHTWlBh@JdAf@`AjBi@Rs@XcCFiGE}AdBaA`@q@bABnEpDz@`BR?H[DyBHuP\\wEj@aFt@yChAuCvA}Cl@]P]l@U~@y@nCaBfFkGlAaArAoBxEgGv@k@xAoCnCkDZw@ZiBnBuCp@{ATeAG}@Fa@dAkAfAcEvA{Br@mBH}CJg@tAwCpAgBTy@LgDK{AWgAHyAU]UkCo@qDBiAfAcD|@gDx@qBNy@dBoB@y@l@qBl@c@rAqBvGiDVq@AoAJi@`Ak@Ls@^KPFj@nDbDtAnJ`@nEiCn@o@hDmHlAsDvA}CTiLIwDeGhA{Al@]|@U~DgBIBeB`@_A@mAOs@e@M{DpCYf@O|@WZa@La@_@cB}DcAyAuDsBm@w@w@kCFgCIu@UYeB`@eAKqALuBj@}@z@kBEeAPsAtA}@`@iAG_AoAq@mDDeA_@a@[y@OmAgBeBq@QgCAKXFXt@`Bg@BOVI?oAoAKq@_@g@E_@s@yAUOUq@g@_@aAsCsBcEe@aBAy@PwAS_B_A}B{AuB]cAcAy@Mc@?WVo@Fq@CcCb@g@B]}@mBwB{AR{CiAwAaAcEQd@[ToHCwDTcFpCiAdByAzAi@bA{AX}Bn@gBq@sAvB{@^mACcAr@m@dA[bAsCrCy@D_B]SFk@dBVtDbCzDhB`Fp@lAz@jC`AtAf@X^nAFz@Oz@Nd@DxAf@|@@`Cv@lDHlF^fCFjBhCpIRnBInBHp@Z`AxB|Cf@tAb@pB|AhBjBnEY~By@~Au@p@{AViApBCbAd@vBIfAGvGWn@k@f@]FMrAWZICv@kBlAg@fAoAb@ZlB~CnAd@APN^OrBL~@G^l@Qr@{@IlATG?^TFMb@RGF`@a@pCBhD`@`CL~B]^h@vALx@Sv@aANT|AE|@JzBYNQ_@IJYMOlAsAaAqBUGPbAtE?hB\\~@Dz@IbAbAItBb@lA`Cp@At@f@|B~E\\~A?dAm@jAFJS`@DLPKEXH?@d@PSRDKRFh@ETk@`Ae@f@p@KV_@RJG^W`@X?FP[VYt@aC~AoCv@}BhA?~@l@tB^fCOdA}@fAc@fA}CfEqAbC_CrF}BdDLl@bBjDN`ACnEOfAPzBMpFk@fEe@\\s@Hg@{@WaAgA{@]@S^_A|EWtAD^";
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
@@ -144,12 +146,14 @@ int8_t getLastActivitieDist(time_t start, time_t end)
         {
             Serial.println("no error");
             JsonArray array = doc.as<JsonArray>();
+            bool isFirst = true;
             for (JsonVariant v : array)
             {
                 if (v["trainer"].as<bool>() == true)
                 {
                     continue;
                 }
+                lastPolyline = v["map"]["summary_polyline"].as<std::string>();
                 struct tm tm;
                 timeStringToTm(v["start_date"].as<const char *>(), &tm);
                 TeActivityType activityType = getActivityType(v["type"].as<const char *>());
@@ -158,8 +162,6 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 int utcOffset = v["utc_offset"].as<int>();
                 Serial.print("activity start timestamp : ");
                 Serial.println(activityStartTime);
-                Serial.print("elapsedTime: ");
-                Serial.println(elapsedTime);
                 if (activityStartTime + utcOffset > lastDayPopulate)
                 {
                     lastDayPopulate = activityStartTime + utcOffset;
@@ -263,16 +265,17 @@ void populateDB(void)
     lastDayPopulate = preferences.getLong("lastTimestamp", 0);
     preferences.getBytes("lastYear", lastYear, sizeof(lastYear));
     preferences.getBytes("thisYear", thisYear, sizeof(thisYear));
+    preferences.end();
 
     // reset everything
     // memset(lastYear, 0, sizeof(lastYear));
     // memset(thisYear, 0, sizeof(thisYear));
     // lastDayPopulate = 0;
-    // lastDayPopulate = 1732818244;
+    // lastDayPopulate = 1733380879;
     // thisYear[333].climbBike = 0;
     // thisYear[333].distBike = 0;
-    // thisYear[334].climbBike = 0;
-    // thisYear[334].distBike = 0;
+    // thisYear[339].climbRun = 0;
+    // thisYear[339].distRun = 0;
 
     struct tm tmpTm;
     time_t startTimestamp, endTimestamp;
@@ -305,7 +308,6 @@ void populateDB(void)
     getYearActivities(startTimestamp, endTimestamp);
 
     Serial.println(lastDayPopulate);
-    preferences.end();
 }
 
 void getYearActivities(time_t start, time_t end)
@@ -313,6 +315,7 @@ void getYearActivities(time_t start, time_t end)
 
     time_t tmp = start;
     int8_t ret = -1;
+    preferences.begin("stravaDB", false);
 
     while (tmp < end)
     {
@@ -335,6 +338,7 @@ void getYearActivities(time_t start, time_t end)
                 preferences.putLong("lastTimestamp", lastDayPopulate);
                 preferences.putBytes("lastYear", lastYear, sizeof(lastYear));
                 preferences.putBytes("thisYear", thisYear, sizeof(thisYear));
+                preferences.end();
                 return;
             }
         }
@@ -344,6 +348,7 @@ void getYearActivities(time_t start, time_t end)
     preferences.putLong("lastTimestamp", lastDayPopulate);
     preferences.putBytes("lastYear", lastYear, sizeof(lastYear));
     preferences.putBytes("thisYear", thisYear, sizeof(thisYear));
+    preferences.end();
 }
 
 void printDB(uint16_t nbDays)
@@ -458,4 +463,18 @@ float getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint
     }
 
     return ret;
+}
+
+void newYearBegin()
+{
+    // copy this year to lastYear
+    memcpy(lastYear, thisYear, sizeof(lastYear));
+
+    // reset this year
+    memset(thisYear, 0, sizeof(thisYear));
+}
+
+void getPolyline(void *out)
+{
+    out = (void *)&lastPolyline;
 }

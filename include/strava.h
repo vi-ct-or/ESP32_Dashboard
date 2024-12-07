@@ -1,4 +1,5 @@
-
+#ifndef STRAVA_H
+#define STRAVA_H
 typedef enum eActivityType
 {
     ACTIVITY_TYPE_UNKNOWN,
@@ -15,5 +16,10 @@ typedef enum eDataType
 
 #define DAYS_BY_YEAR 366
 
+extern std::string lastPolyline;
 float getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint16_t startDay, uint16_t endDay);
 void populateDB(void);
+void newYearBegin();
+void getPolyline(void *out);
+
+#endif

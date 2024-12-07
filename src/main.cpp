@@ -4,8 +4,9 @@
 #include "otaUpdate.h"
 #include "strava.h"
 #include "display.h"
+#include <Preferences.h>
 
-#define NB_MENU 4
+#define NB_MENU 5
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
@@ -15,6 +16,8 @@ struct tm timeinfo1;
 uint8_t prevMinute = 255;
 uint8_t prevHour = 255;
 uint8_t prevMenu = UINT8_MAX, currentMenu = 0;
+uint16_t prevYear;
+Preferences preferences2;
 const int buttonPin = 0;
 
 static void IRAM_ATTR buttonInterrupt(void);
@@ -40,16 +43,28 @@ void setup()
     ;
   updateFW();
   displayClearContent();
+
+  preferences2.begin("date", false);
+  prevYear = preferences2.getUShort("prevYear", timeinfo1.tm_year + 1900);
+  preferences2.end();
 }
 
 void loop()
 {
   // update time
   getLocalTime(&timeinfo1);
-  if (timeinfo1.tm_min != prevMinute)
+  if (timeinfo1.tm_min != prevMinute && currentMenu != 4)
   {
     prevMinute = timeinfo1.tm_min;
     displayTime(&timeinfo1);
+  }
+  if (timeinfo1.tm_year + 1900 == prevYear + 1)
+  {
+    newYearBegin();
+    preferences2.begin("date", false);
+    prevYear = timeinfo1.tm_year + 1900;
+    preferences2.putUShort("prevYear", prevYear);
+    preferences2.end();
   }
   if (timeinfo1.tm_hour != prevHour)
   {
@@ -79,6 +94,10 @@ void loop()
 
     case 3: // today
       displayStravaToday();
+      break;
+
+    case 4:
+      displayStravaPolyline();
       break;
 
     default:
