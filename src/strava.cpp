@@ -29,7 +29,9 @@ uint64_t lastActivitiesId[10];
 time_t lastDayPopulate;
 struct tm timeinfo;
 Preferences preferences;
-std::string lastPolyline; // = "qhcxGgxag@rBiHTWlBh@JdAf@`AjBi@Rs@XcCFiGE}AdBaA`@q@bABnEpDz@`BR?H[DyBHuP\\wEj@aFt@yChAuCvA}Cl@]P]l@U~@y@nCaBfFkGlAaArAoBxEgGv@k@xAoCnCkDZw@ZiBnBuCp@{ATeAG}@Fa@dAkAfAcEvA{Br@mBH}CJg@tAwCpAgBTy@LgDK{AWgAHyAU]UkCo@qDBiAfAcD|@gDx@qBNy@dBoB@y@l@qBl@c@rAqBvGiDVq@AoAJi@`Ak@Ls@^KPFj@nDbDtAnJ`@nEiCn@o@hDmHlAsDvA}CTiLIwDeGhA{Al@]|@U~DgBIBeB`@_A@mAOs@e@M{DpCYf@O|@WZa@La@_@cB}DcAyAuDsBm@w@w@kCFgCIu@UYeB`@eAKqALuBj@}@z@kBEeAPsAtA}@`@iAG_AoAq@mDDeA_@a@[y@OmAgBeBq@QgCAKXFXt@`Bg@BOVI?oAoAKq@_@g@E_@s@yAUOUq@g@_@aAsCsBcEe@aBAy@PwAS_B_A}B{AuB]cAcAy@Mc@?WVo@Fq@CcCb@g@B]}@mBwB{AR{CiAwAaAcEQd@[ToHCwDTcFpCiAdByAzAi@bA{AX}Bn@gBq@sAvB{@^mACcAr@m@dA[bAsCrCy@D_B]SFk@dBVtDbCzDhB`Fp@lAz@jC`AtAf@X^nAFz@Oz@Nd@DxAf@|@@`Cv@lDHlF^fCFjBhCpIRnBInBHp@Z`AxB|Cf@tAb@pB|AhBjBnEY~By@~Au@p@{AViApBCbAd@vBIfAGvGWn@k@f@]FMrAWZICv@kBlAg@fAoAb@ZlB~CnAd@APN^OrBL~@G^l@Qr@{@IlATG?^TFMb@RGF`@a@pCBhD`@`CL~B]^h@vALx@Sv@aANT|AE|@JzBYNQ_@IJYMOlAsAaAqBUGPbAtE?hB\\~@Dz@IbAbAItBb@lA`Cp@At@f@|B~E\\~A?dAm@jAFJS`@DLPKEXH?@d@PSRDKRFh@ETk@`Ae@f@p@KV_@RJG^W`@X?FP[VYt@aC~AoCv@}BhA?~@l@tB^fCOdA}@fAc@fA}CfEqAbC_CrF}BdDLl@bBjDN`ACnEOfAPzBMpFk@fEe@\\s@Hg@{@WaAgA{@]@S^_A|EWtAD^";
+bool newActivity = true;
+TsActivity lastActivity;
+std::string lastPolyline = "qhcxGgxag@rBiHTWlBh@JdAf@`AjBi@Rs@XcCFiGE}AdBaA`@q@bABnEpDz@`BR?H[DyBHuP\\wEj@aFt@yChAuCvA}Cl@]P]l@U~@y@nCaBfFkGlAaArAoBxEgGv@k@xAoCnCkDZw@ZiBnBuCp@{ATeAG}@Fa@dAkAfAcEvA{Br@mBH}CJg@tAwCpAgBTy@LgDK{AWgAHyAU]UkCo@qDBiAfAcD|@gDx@qBNy@dBoB@y@l@qBl@c@rAqBvGiDVq@AoAJi@`Ak@Ls@^KPFj@nDbDtAnJ`@nEiCn@o@hDmHlAsDvA}CTiLIwDeGhA{Al@]|@U~DgBIBeB`@_A@mAOs@e@M{DpCYf@O|@WZa@La@_@cB}DcAyAuDsBm@w@w@kCFgCIu@UYeB`@eAKqALuBj@}@z@kBEeAPsAtA}@`@iAG_AoAq@mDDeA_@a@[y@OmAgBeBq@QgCAKXFXt@`Bg@BOVI?oAoAKq@_@g@E_@s@yAUOUq@g@_@aAsCsBcEe@aBAy@PwAS_B_A}B{AuB]cAcAy@Mc@?WVo@Fq@CcCb@g@B]}@mBwB{AR{CiAwAaAcEQd@[ToHCwDTcFpCiAdByAzAi@bA{AX}Bn@gBq@sAvB{@^mACcAr@m@dA[bAsCrCy@D_B]SFk@dBVtDbCzDhB`Fp@lAz@jC`AtAf@X^nAFz@Oz@Nd@DxAf@|@@`Cv@lDHlF^fCFjBhCpIRnBInBHp@Z`AxB|Cf@tAb@pB|AhBjBnEY~By@~Au@p@{AViApBCbAd@vBIfAGvGWn@k@f@]FMrAWZICv@kBlAg@fAoAb@ZlB~CnAd@APN^OrBL~@G^l@Qr@{@IlATG?^TFMb@RGF`@a@pCBhD`@`CL~B]^h@vALx@Sv@aANT|AE|@JzBYNQ_@IJYMOlAsAaAqBUGPbAtE?hB\\~@Dz@IbAbAItBb@lA`Cp@At@f@|B~E\\~A?dAm@jAFJS`@DLPKEXH?@d@PSRDKRFh@ETk@`Ae@f@p@KV_@RJG^W`@X?FP[VYt@aC~AoCv@}BhA?~@l@tB^fCOdA}@fAc@fA}CfEqAbC_CrF}BdDLl@bBjDN`ACnEOfAPzBMpFk@fEe@\\s@Hg@{@WaAgA{@]@S^_A|EWtAD^";
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
@@ -153,12 +155,20 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 {
                     continue;
                 }
-                lastPolyline = v["map"]["summary_polyline"].as<std::string>();
+                newActivity = true;
                 struct tm tm;
                 timeStringToTm(v["start_date"].as<const char *>(), &tm);
                 TeActivityType activityType = getActivityType(v["type"].as<const char *>());
                 time_t activityStartTime = mktime(&tm);
-                time_t elapsedTime = v["elapsed_time"].as<int>();
+                time_t movingTime = v["moving_time"].as<int>();
+                lastActivity.polyline = v["map"]["summary_polyline"].as<std::string>();
+                lastActivity.type = activityType;
+                lastActivity.time = movingTime;
+                lastActivity.deniv = v["total_elevation_gain"].as<int>();
+                lastActivity.dist = (uint16_t)(v["distance"].as<float>() / 10.0);
+                lastActivity.name = v["name"].as<std::string>();
+                lastActivity.timestamp = activityStartTime;
+
                 int utcOffset = v["utc_offset"].as<int>();
                 Serial.print("activity start timestamp : ");
                 Serial.println(activityStartTime);
@@ -271,11 +281,11 @@ void populateDB(void)
     // memset(lastYear, 0, sizeof(lastYear));
     // memset(thisYear, 0, sizeof(thisYear));
     // lastDayPopulate = 0;
-    // lastDayPopulate = 1733380879;
+    lastDayPopulate = 1733685877;
     // thisYear[333].climbBike = 0;
     // thisYear[333].distBike = 0;
-    // thisYear[339].climbRun = 0;
-    // thisYear[339].distRun = 0;
+    thisYear[345].climbRun = 0;
+    thisYear[345].distRun = 0;
 
     struct tm tmpTm;
     time_t startTimestamp, endTimestamp;
@@ -477,4 +487,9 @@ void newYearBegin()
 void getPolyline(void *out)
 {
     out = (void *)&lastPolyline;
+}
+
+TsActivity *getStravaLastActivity()
+{
+    return &lastActivity;
 }

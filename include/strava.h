@@ -14,12 +14,23 @@ typedef enum eDataType
     DATA_TYPE_TIME,
 } TeDataType;
 
-#define DAYS_BY_YEAR 366
+typedef struct sActivity
+{
+    uint16_t dist;
+    uint16_t time;
+    uint16_t deniv;
+    time_t timestamp;
+    TeActivityType type;
+    std::string name;
+    std::string polyline;
+} TsActivity;
 
-extern std::string lastPolyline;
+#define DAYS_BY_YEAR 366
+extern bool newActivity;
 float getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint16_t startDay, uint16_t endDay);
 void populateDB(void);
 void newYearBegin();
-void getPolyline(void *out);
+
+TsActivity *getStravaLastActivity();
 
 #endif
