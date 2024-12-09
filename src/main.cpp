@@ -1,9 +1,8 @@
 #include <Arduino.h>
-#include "credentials.h"
-#include "WiFi.h"
 #include "otaUpdate.h"
 #include "strava.h"
-#include "display.h"
+#include "displayEpaper.h"
+#include "network.h"
 #include <Preferences.h>
 
 #define NB_MENU 5
@@ -15,6 +14,7 @@ const char *TZ_INFO = "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00";
 struct tm timeinfo1;
 uint8_t prevMinute = 255;
 uint8_t prevHour = 255;
+uint8_t prevDay = 255;
 uint8_t prevMenu = UINT8_MAX, currentMenu = 0;
 uint16_t prevYear;
 Preferences preferences2;
@@ -25,24 +25,15 @@ static void IRAM_ATTR buttonInterrupt(void);
 void setup()
 {
   Serial.begin(9600);
-  initDisplay();
+  Serial.println("START");
   attachInterrupt(buttonPin, buttonInterrupt, FALLING);
-
-  WiFi.begin(wifiSsid, wifiPswd);
-  Serial.print("Connecting to WiFi ..");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print('.');
-    delay(1000);
-  }
-  Serial.println("connected");
-  displayText("Connected to wifi");
+  connectWifi(10000);
 
   configTzTime(TZ_INFO, NTP_SERVER);
   while (!getLocalTime(&timeinfo1))
     ;
-  updateFW();
-  displayClearContent();
+  // updateFW();
+  initDisplay();
 
   preferences2.begin("date", false);
   prevYear = preferences2.getUShort("prevYear", timeinfo1.tm_year + 1900);
@@ -58,6 +49,11 @@ void loop()
     prevMinute = timeinfo1.tm_min;
     displayTime(&timeinfo1);
   }
+  if (timeinfo1.tm_mday != prevDay)
+  {
+    prevDay = timeinfo1.tm_mday;
+    displayDate(&timeinfo1);
+  }
   if (timeinfo1.tm_year + 1900 == prevYear + 1)
   {
     newYearBegin();
@@ -70,39 +66,14 @@ void loop()
   {
     prevHour = timeinfo1.tm_hour;
     populateDB();
-    prevMenu = UINT8_MAX; // to refresh current menu with new activity
-  }
-
-  // update menu if button pressed
-  if (prevMenu != currentMenu)
-  {
-    prevMenu = currentMenu;
-
-    switch (currentMenu)
+    if (newActivity)
     {
-    case 0: // all year
       displayStravaAllYear();
-      break;
-
-    case 1: // ytd
-      displayStravaYTD();
-      break;
-
-    case 2: // this week
-      displayStravaCurrentWeek();
-      break;
-
-    case 3: // today
-      displayStravaToday();
-      break;
-
-    case 4:
       displayStravaPolyline();
-      break;
-
-    default:
-      break;
+      displayLastActivity();
+      newActivity = false;
     }
+    prevMenu = UINT8_MAX; // to refresh current menu with new activity
   }
 
   delay(1000);
@@ -112,7 +83,7 @@ static void IRAM_ATTR buttonInterrupt(void)
 {
   static unsigned long last_interrupt_time = 0;
   unsigned long interrupt_time = millis();
-  // If interrupts come faster than 5s, assume it's a bounce and ignore
+  // If interrupts come faster than 500ms, assume it's a bounce and ignore
   if ((interrupt_time - last_interrupt_time > 500) || last_interrupt_time > interrupt_time)
   {
 
