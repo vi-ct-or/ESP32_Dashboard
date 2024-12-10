@@ -6,6 +6,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "display.h"
+#include "Preferences.h"
 
 #include "otaUpdate.h"
 
@@ -21,39 +22,13 @@
 bool getFileFromServer();
 bool performOTAUpdateFromSPIFFS();
 uint8_t getVersion();
+Preferences preferences3;
 
 void updateFW()
 {
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
-        // NVS partition was truncated and needs to be erased
-        Serial.print("error init nvs flash : ");
-        Serial.println(err);
-        // Retry nvs_flash_init
-        err = nvs_flash_init();
-    }
-
-    nvs_handle_t my_handle;
-    err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK)
-    {
-        Serial.print("Error opening NVS handle!");
-        Serial.println(esp_err_to_name(err));
-    }
-    uint8_t currentVersion = 0; // value will default to 0, if not set yet in NVS
-    err = nvs_get_u8(my_handle, "currentVersion", &currentVersion);
-    switch (err)
-    {
-    case ESP_OK:
-        break;
-    case ESP_ERR_NVS_NOT_FOUND:
-        Serial.print("The value is not initialized yet!\n");
-        break;
-    default:
-        Serial.print("Error nvs get u8!");
-        Serial.println(esp_err_to_name(err));
-    }
+    uint8_t currentVersion; // value will default to 0, if not set yet in NVS
+    preferences3.begin("ota", false);
+    currentVersion = preferences3.getUChar("swVersion", 0);
 
     uint8_t newVersion = getVersion();
     Serial.print("Current Version :");
@@ -66,19 +41,14 @@ void updateFW()
         {
             if (performOTAUpdateFromSPIFFS())
             {
-                err = nvs_set_u8(my_handle, "currentVersion", newVersion);
-                Serial.println((err != ESP_OK) ? "nvs_set_u8 Failed!" : "nvs_set_u8 Done");
-                Serial.print("Committing updates in NVS ... ");
-                err = nvs_commit(my_handle);
-                Serial.println((err != ESP_OK) ? "nvs_commit Failed!" : "nvs_commit Done");
-
-                // Close
-                nvs_close(my_handle);
+                preferences3.putUChar("swVersion", newVersion);
             }
         }
-        delay(5000);
+        preferences3.end();
+        delay(1000);
         ESP.restart(); // Restart ESP32 to apply the update
     }
+    preferences3.end();
 }
 
 uint8_t getVersion()
