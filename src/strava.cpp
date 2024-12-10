@@ -30,8 +30,7 @@ time_t lastDayPopulate;
 struct tm timeinfo;
 Preferences preferences;
 bool newActivity = true;
-TsActivity lastActivity;
-std::string lastPolyline = "qhcxGgxag@rBiHTWlBh@JdAf@`AjBi@Rs@XcCFiGE}AdBaA`@q@bABnEpDz@`BR?H[DyBHuP\\wEj@aFt@yChAuCvA}Cl@]P]l@U~@y@nCaBfFkGlAaArAoBxEgGv@k@xAoCnCkDZw@ZiBnBuCp@{ATeAG}@Fa@dAkAfAcEvA{Br@mBH}CJg@tAwCpAgBTy@LgDK{AWgAHyAU]UkCo@qDBiAfAcD|@gDx@qBNy@dBoB@y@l@qBl@c@rAqBvGiDVq@AoAJi@`Ak@Ls@^KPFj@nDbDtAnJ`@nEiCn@o@hDmHlAsDvA}CTiLIwDeGhA{Al@]|@U~DgBIBeB`@_A@mAOs@e@M{DpCYf@O|@WZa@La@_@cB}DcAyAuDsBm@w@w@kCFgCIu@UYeB`@eAKqALuBj@}@z@kBEeAPsAtA}@`@iAG_AoAq@mDDeA_@a@[y@OmAgBeBq@QgCAKXFXt@`Bg@BOVI?oAoAKq@_@g@E_@s@yAUOUq@g@_@aAsCsBcEe@aBAy@PwAS_B_A}B{AuB]cAcAy@Mc@?WVo@Fq@CcCb@g@B]}@mBwB{AR{CiAwAaAcEQd@[ToHCwDTcFpCiAdByAzAi@bA{AX}Bn@gBq@sAvB{@^mACcAr@m@dA[bAsCrCy@D_B]SFk@dBVtDbCzDhB`Fp@lAz@jC`AtAf@X^nAFz@Oz@Nd@DxAf@|@@`Cv@lDHlF^fCFjBhCpIRnBInBHp@Z`AxB|Cf@tAb@pB|AhBjBnEY~By@~Au@p@{AViApBCbAd@vBIfAGvGWn@k@f@]FMrAWZICv@kBlAg@fAoAb@ZlB~CnAd@APN^OrBL~@G^l@Qr@{@IlATG?^TFMb@RGF`@a@pCBhD`@`CL~B]^h@vALx@Sv@aANT|AE|@JzBYNQ_@IJYMOlAsAaAqBUGPbAtE?hB\\~@Dz@IbAbAItBb@lA`Cp@At@f@|B~E\\~A?dAm@jAFJS`@DLPKEXH?@d@PSRDKRFh@ETk@`Ae@f@p@KV_@RJG^W`@X?FP[VYt@aC~AoCv@}BhA?~@l@tB^fCOdA}@fAc@fA}CfEqAbC_CrF}BdDLl@bBjDN`ACnEOfAPzBMpFk@fEe@\\s@Hg@{@WaAgA{@]@S^_A|EWtAD^";
+RTC_DATA_ATTR TsActivity lastActivity;
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
@@ -70,14 +69,14 @@ bool getAccessToken(char *ret_token)
 
         if (httpResponseCode == 200)
         {
-            const char *resp = http.getString().c_str();
+            String resp = http.getString();
+            // const char *resp = http.getString().c_str();
             JsonDocument doc;
-            DeserializationError error = deserializeJson(doc, resp);
+            DeserializationError error = deserializeJson(doc, resp.c_str());
             if (error)
             {
                 Serial.print("GET ACCESS TOKEN deserializeJson() returned ");
                 Serial.println(error.c_str());
-                Serial.println(resp);
             }
             else
             {
@@ -131,9 +130,11 @@ int8_t getLastActivitieDist(time_t start, time_t end)
     if (httpResponseCode == 200)
     {
         Serial.println("YEAH");
-        const char *resp = http.getString().c_str();
+        String resp = http.getString();
+        // const char *resp = http.getString().c_str();
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, resp);
+        DeserializationError error = deserializeJson(doc, resp.c_str());
+
         if (error)
         {
             if (error == DeserializationError::EmptyInput)
@@ -284,8 +285,8 @@ void populateDB(void)
     lastDayPopulate = 1733685877;
     // thisYear[333].climbBike = 0;
     // thisYear[333].distBike = 0;
-    thisYear[345].climbRun = 0;
-    thisYear[345].distRun = 0;
+    thisYear[343].climbRun = 0;
+    thisYear[343].distRun = 0;
 
     struct tm tmpTm;
     time_t startTimestamp, endTimestamp;
@@ -482,11 +483,6 @@ void newYearBegin()
 
     // reset this year
     memset(thisYear, 0, sizeof(thisYear));
-}
-
-void getPolyline(void *out)
-{
-    out = (void *)&lastPolyline;
 }
 
 TsActivity *getStravaLastActivity()
