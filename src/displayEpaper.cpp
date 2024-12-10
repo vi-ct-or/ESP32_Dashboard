@@ -23,18 +23,26 @@ void drawYearStr(const void *pv);
 void drawStravaPolyline(const void *pv);
 void drawFull(const void *pv);
 void drawMonth(const void *pv);
+void drawLastTwelveMonths(const void *pv);
 void drawLastActivity(const void *pv);
-void timestampToHour(time_t timestamp, std::string *out);
+void secondsToHour(time_t timestamp, std::string *out);
+void printSTDString(std::string str);
+
+bool refresh = true;
 
 void initDisplay(void)
 {
     // init display
-    display.init(9600, true, 50, false);
+
+    display.init(9600, refresh /*true*/, 50, false);
     display.setRotation(1);
     display.setTextSize(2);
     // display.setFont(&FreeMonoBold9pt7b);
     display.setTextColor(GxEPD_BLACK);
-    display.drawPaged(drawFull, 0);
+    if (refresh)
+    {
+        display.drawPaged(drawFull, 0);
+    }
 }
 
 void displayTime(struct tm *now)
@@ -59,6 +67,13 @@ void displayStravaThisMonth(struct tm *now)
     display.drawPaged(drawMonth, (const void *)now);
     display.hibernate();
 }
+
+void displayStravaMonths(struct tm *now)
+{
+    display.drawPaged(drawLastTwelveMonths, (const void *)now);
+    display.hibernate();
+}
+
 void displayLastActivity()
 {
     display.drawPaged(drawLastActivity, 0);
@@ -465,22 +480,44 @@ void drawMonth(const void *pv)
 void drawLastActivity(const void *pv)
 {
     TsActivity *lastActivity = getStravaLastActivity();
-    std::string displStr, dist;
-    displStr = lastActivity->name;
-    displStr += "\n";
-    dist = std::to_string((float)lastActivity->dist / 100.0);
+    std::string displStr, dist, name, time, duration, deniv;
+    name = lastActivity->name; // name
+    if (name.size() > 10)
+    {
+        name.insert(10, 1, '\n');
+
+        if (name[11] == ' ')
+        {
+            name.erase(11, 1);
+        }
+    }
+    if (name.size() > 19)
+    {
+        name.resize(19);
+    }
+    dist = std::to_string((float)lastActivity->dist / 100.0); // dist
     uint8_t dotIdx = dist.find('.');
     dist.resize(dotIdx + 3);
+    dist += "km";
+    dist.insert(0, 10 - dist.size(), ' ');
+    secondsToHour(lastActivity->time, &duration); // duration
+    duration.insert(0, 10 - duration.size(), ' ');
+    deniv = std::to_string(lastActivity->deniv); // deniv
+    deniv += "m d+";
+    deniv.insert(0, 10 - deniv.size(), ' ');
+
+    displStr = name;
+    displStr += "\n\n";
     displStr += dist;
-    displStr += "km\n";
-    timestampToHour(lastActivity->time, &displStr);
-    displStr += std::to_string(lastActivity->deniv);
-    displStr += "m d+";
+    displStr += "\n";
+    displStr += duration;
+    displStr += "\n";
+    displStr += deniv;
     display.setTextSize(2);
-    drawText(0, 250, displStr.c_str());
+    drawText(0, 260, displStr.c_str());
 }
 
-void timestampToHour(time_t timestamp, std::string *out)
+void secondsToHour(time_t timestamp, std::string *out)
 {
     time_t remainingTime = timestamp;
     if (remainingTime / 3600 > 0)
@@ -501,4 +538,146 @@ void timestampToHour(time_t timestamp, std::string *out)
         out->append("0");
     }
     out->append(std::to_string(remainingTime));
+}
+
+void printSTDString(std::string str)
+{
+    for (uint8_t i = 0; i < str.size(); i++)
+    {
+        Serial.print(str[i]);
+    }
+    Serial.print("\n");
+}
+
+void drawLastTwelveMonths(const void *pv)
+{
+    uint16_t yearMon[12] = {0};
+    const struct tm *now = (const struct tm *)pv;
+    struct tm tmp;
+    if (now->tm_mon == 11) // december
+    {
+        tmp.tm_year = now->tm_year;
+        tmp.tm_mon = 0;
+    }
+    else
+    {
+        tmp.tm_year = now->tm_year - 1;
+        tmp.tm_mon = now->tm_mon + 1;
+    }
+
+    tmp.tm_hour = 8;
+    tmp.tm_min = 0;
+    tmp.tm_sec = 0;
+    uint16_t maxMonth = 0;
+
+    for (uint8_t i = 0; i < 12; i++)
+    {
+        uint16_t startMonDay, endMonDay, dist;
+        tmp.tm_mon = (now->tm_mon + 1 + i) % 12;
+        if (tmp.tm_mon == 0 && i != 0)
+        {
+            tmp.tm_year++;
+        }
+        tmp.tm_mday = 1;
+        mktime(&tmp);
+        Serial.print("start : ");
+        Serial.println(tmp.tm_yday);
+        startMonDay = tmp.tm_yday;
+        if (i == 0 || i == 2 || i == 4 || i == 6 || i == 7 || i == 9 || i == 11)
+        {
+            tmp.tm_mday = 31;
+        }
+        else if (i == 3 || i == 5 || i == 8 || i == 10)
+        {
+            tmp.tm_mday = 30;
+        }
+        else
+        {                                                                          // fevrier
+            if ((tmp.tm_year + 1900) % 4 == 0 and (tmp.tm_year + 1900) % 100 != 0) // bissextile
+            {
+                tmp.tm_mday = 29;
+            }
+            else
+            {
+                tmp.tm_mday = 28;
+            }
+        }
+        mktime(&tmp);
+        Serial.print("endday : ");
+        Serial.println(tmp.tm_yday);
+        endMonDay = tmp.tm_yday;
+        bool isCurrentYear = tmp.tm_year == now->tm_year;
+        Serial.print(startMonDay);
+        Serial.print(" - ");
+        Serial.println(endMonDay);
+        dist = (int)getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, isCurrentYear, startMonDay, endMonDay);
+        dist += (int)getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, isCurrentYear, startMonDay, endMonDay);
+        yearMon[i] = dist;
+        Serial.println(dist);
+        if (dist > maxMonth)
+        {
+            maxMonth = dist;
+        }
+    }
+
+    uint16_t x = 50, w = 18, h, space = 3, hMax = 68, y = 235;
+
+    display.setPartialWindow(0, y - hMax, 300, hMax + 12);
+    for (uint8_t i = 0; i < 12; i++)
+    {
+        display.drawRect(x, y, w, -(yearMon[i] * hMax / maxMonth), GxEPD_BLACK);
+        display.setTextSize(1);
+        display.setCursor(x + 6, y + 2);
+        char monthLetter;
+        uint8_t mon = (now->tm_mon + 1 + i) % 12;
+        switch (mon)
+        {
+        case 0:
+        case 5:
+        case 6:
+            monthLetter = 'J';
+            break;
+        case 1:
+            monthLetter = 'F';
+            break;
+        case 2:
+        case 4:
+            monthLetter = 'M';
+            break;
+        case 3:
+        case 7:
+            monthLetter = 'A';
+            break;
+        case 8:
+            monthLetter = 'S';
+            break;
+        case 9:
+            monthLetter = 'O';
+            break;
+        case 10:
+            monthLetter = 'N';
+            break;
+        case 11:
+            monthLetter = 'D';
+            break;
+
+        default:
+            break;
+        }
+        display.print(monthLetter);
+        Serial.print(monthLetter);
+        Serial.print(" : ");
+        Serial.println(yearMon[i]);
+        x += w + space;
+    }
+
+    display.drawLine(30, y - hMax - 1, 300, y - hMax - 1, GxEPD_BLACK);
+    display.drawLine(30, y - hMax / 2, 300, y - hMax / 2, GxEPD_BLACK);
+    display.drawLine(30, y, 300, y, GxEPD_BLACK);
+    display.setCursor(0, y - 3 - hMax);
+    display.print(maxMonth);
+    display.setCursor(0, y - 3 - hMax / 2);
+    display.print(maxMonth / 2);
+    display.setCursor(0, y - 3);
+    display.print(0);
 }

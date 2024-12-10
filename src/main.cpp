@@ -27,12 +27,12 @@ void setup()
   Serial.begin(9600);
   Serial.println("START");
   attachInterrupt(buttonPin, buttonInterrupt, FALLING);
-  connectWifi(10000);
+  initWifi();
 
   configTzTime(TZ_INFO, NTP_SERVER);
   while (!getLocalTime(&timeinfo1))
     ;
-  // updateFW();
+  updateFW();
   initDisplay();
 
   preferences2.begin("date", false);
@@ -65,13 +65,18 @@ void loop()
   if (timeinfo1.tm_hour != prevHour)
   {
     prevHour = timeinfo1.tm_hour;
-    populateDB();
-    if (newActivity)
+    if (connectWifi(10000))
     {
-      displayStravaAllYear();
-      displayStravaPolyline();
-      displayLastActivity();
-      newActivity = false;
+      populateDB();
+      if (newActivity)
+      {
+        displayStravaAllYear();
+        displayStravaMonths(&timeinfo1);
+        displayLastActivity();
+        displayStravaPolyline();
+        newActivity = false;
+      }
+      disconnectWifi();
     }
     prevMenu = UINT8_MAX; // to refresh current menu with new activity
   }

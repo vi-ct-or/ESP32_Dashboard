@@ -2,9 +2,18 @@
 #include "network.h"
 #include "WiFi.h"
 
-void connectWifi(int timeoutms)
+void initWifi()
 {
     WiFi.mode(WIFI_STA);
+    connectWifi(10000);
+}
+bool connectWifi(int timeoutms)
+{
+    bool connected = false;
+    if (isWifiConnected())
+    {
+        return true;
+    }
     Serial.println("Scanning");
     int n = WiFi.scanNetworks();
     if (n != 0)
@@ -31,6 +40,7 @@ void connectWifi(int timeoutms)
                 if (isWifiConnected())
                 {
                     Serial.println("Connected");
+                    connected = true;
                 }
                 else
                 {
@@ -42,9 +52,15 @@ void connectWifi(int timeoutms)
         }
     }
     WiFi.scanDelete();
+    return connected;
 }
 
 bool isWifiConnected()
 {
     return WiFi.isConnected();
+}
+
+void disconnectWifi()
+{
+    WiFi.disconnect(true);
 }
