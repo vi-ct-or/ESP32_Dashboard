@@ -5,7 +5,7 @@
 #include <HTTPClient.h>
 #include "nvs_flash.h"
 #include "nvs.h"
-#include "display.h"
+#include "displayEpaper.h"
 #include "Preferences.h"
 
 #include "otaUpdate.h"
@@ -37,6 +37,7 @@ void updateFW()
     Serial.println(newVersion);
     if (newVersion > currentVersion)
     {
+        displayUpdating();
         if (getFileFromServer())
         {
             if (performOTAUpdateFromSPIFFS())

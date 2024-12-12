@@ -27,6 +27,7 @@ void drawLastTwelveMonths(const void *pv);
 void drawLastActivity(const void *pv);
 void secondsToHour(time_t timestamp, std::string *out);
 void printSTDString(std::string str);
+void drawUpdating(const void *pv);
 
 bool refresh = true;
 
@@ -148,6 +149,12 @@ void displayStravaToday()
         display.println("m d+");
     }
     display.display();
+}
+
+void displayUpdating()
+{
+    display.drawPaged(drawUpdating, 0);
+    display.hibernate();
 }
 
 void displayText(const char msg[])
@@ -413,12 +420,14 @@ void drawStravaPolyline(const void *pv)
         int minLng = getMinLng();
 
         int maxDiff = max(maxLat - minLat, maxLng - minLng);
+        int offsetV = (SQUARE_SIZE - (int)(((float)((maxLat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - 1) / 2;
+        int offsetH = (int)(((float)((maxLng - minLng) * SQUARE_SIZE)) / (float)maxDiff) / 2;
         int x, y, prevx = -1, prevy = -1;
+        //      display.drawRect(150, 250, SQUARE_SIZE, SQUARE_SIZE, GxEPD_BLACK);
         for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
         {
-            x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff);
-            y = 249 + SQUARE_SIZE - (int)(((float)((it->lat - minLat) * SQUARE_SIZE)) / (float)maxDiff);
-            // display.drawPixel(x, y, GxEPD_BLACK);
+            x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) /*+ offsetH*/;
+            y = 249 + SQUARE_SIZE - (int)(((float)((it->lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) /*- offsetV*/;
             if (prevx != -1 && prevy != -1)
             {
                 display.drawLine(prevx, prevy, x, y, GxEPD_BLACK);
@@ -580,8 +589,8 @@ void drawLastTwelveMonths(const void *pv)
         }
         tmp.tm_mday = 1;
         mktime(&tmp);
-        Serial.print("start : ");
-        Serial.println(tmp.tm_yday);
+        // Serial.print("start : ");
+        // Serial.println(tmp.tm_yday);
         startMonDay = tmp.tm_yday;
         if (i == 0 || i == 2 || i == 4 || i == 6 || i == 7 || i == 9 || i == 11)
         {
@@ -603,8 +612,8 @@ void drawLastTwelveMonths(const void *pv)
             }
         }
         mktime(&tmp);
-        Serial.print("endday : ");
-        Serial.println(tmp.tm_yday);
+        // Serial.print("endday : ");
+        // Serial.println(tmp.tm_yday);
         endMonDay = tmp.tm_yday;
         bool isCurrentYear = tmp.tm_year == now->tm_year;
         Serial.print(startMonDay);
@@ -680,4 +689,10 @@ void drawLastTwelveMonths(const void *pv)
     display.print(maxMonth / 2);
     display.setCursor(0, y - 3);
     display.print(0);
+}
+
+void drawUpdating(const void *pv)
+{
+    display.setTextSize(3);
+    drawText(100, 5, "Updating...");
 }
