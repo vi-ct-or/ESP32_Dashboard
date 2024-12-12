@@ -32,8 +32,8 @@ void setup()
   configTzTime(TZ_INFO, NTP_SERVER);
   while (!getLocalTime(&timeinfo1))
     ;
-  updateFW();
   initDisplay();
+  updateFW();
 
   preferences2.begin("date", false);
   prevYear = preferences2.getUShort("prevYear", timeinfo1.tm_year + 1900);

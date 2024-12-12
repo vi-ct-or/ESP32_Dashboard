@@ -13,4 +13,5 @@ void displayText(const char msg[]);
 void displayStravaPolyline();
 void displayStravaThisMonth(struct tm *now);
 void displayLastActivity();
+void displayUpdating();
 #endif
