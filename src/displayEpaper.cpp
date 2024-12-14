@@ -29,7 +29,7 @@ void secondsToHour(time_t timestamp, std::string *out);
 void printSTDString(std::string str);
 void drawUpdating(const void *pv);
 
-bool refresh = true;
+RTC_DATA_ATTR bool refresh = true;
 
 void initDisplay(void)
 {
@@ -40,10 +40,17 @@ void initDisplay(void)
     display.setTextSize(2);
     // display.setFont(&FreeMonoBold9pt7b);
     display.setTextColor(GxEPD_BLACK);
+    display.hibernate();
+}
+
+void displayTemplate()
+{
     if (refresh)
     {
         display.drawPaged(drawFull, 0);
+        refresh = false;
     }
+    display.hibernate();
 }
 
 void displayTime(struct tm *now)
@@ -151,9 +158,10 @@ void displayStravaToday()
     display.display();
 }
 
-void displayUpdating()
+void displayUpdating(uint8_t state)
 {
-    display.drawPaged(drawUpdating, 0);
+
+    display.drawPaged(drawUpdating, (void *)&state);
     display.hibernate();
 }
 
@@ -693,6 +701,29 @@ void drawLastTwelveMonths(const void *pv)
 
 void drawUpdating(const void *pv)
 {
-    display.setTextSize(3);
-    drawText(100, 5, "Updating...");
+    uint8_t state = *(uint8_t *)pv;
+    display.setTextSize(2);
+    switch (state)
+    {
+    case 0:
+        drawText(1, 5, "New version available");
+        break;
+    case 1:
+        drawText(1, 40, "Downloading new version");
+        break;
+    case 2:
+        drawText(1, 80, "Download complete");
+        break;
+    case 3:
+        drawText(1, 120, "Starting update");
+        break;
+    case 4:
+        drawText(1, 160, "Update error, restarting");
+        break;
+    case 5:
+        drawText(1, 160, "Update successfully done, restarting");
+        break;
+    default:
+        break;
+    }
 }

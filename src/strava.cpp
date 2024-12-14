@@ -161,6 +161,8 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 TeActivityType activityType = getActivityType(v["type"].as<const char *>());
                 time_t activityStartTime = mktime(&tm);
                 time_t movingTime = v["moving_time"].as<int>();
+                Serial.print("activity start timestamp : ");
+                Serial.println(activityStartTime);
                 if (activityStartTime >= lastActivity.timestamp)
                 {
                     lastActivity.polyline = v["map"]["summary_polyline"].as<std::string>();
@@ -182,8 +184,6 @@ int8_t getLastActivitieDist(time_t start, time_t end)
 
                 newActivity = true;
                 int utcOffset = v["utc_offset"].as<int>();
-                Serial.print("activity start timestamp : ");
-                Serial.println(activityStartTime);
                 if (activityStartTime /* + utcOffset */ > lastDayPopulate)
                 {
                     lastDayPopulate = activityStartTime /*+ utcOffset*/;
@@ -288,12 +288,14 @@ void populateDB(void)
     preferences.getBytes("lastYear", lastYear, sizeof(lastYear));
     preferences.getBytes("thisYear", thisYear, sizeof(thisYear));
     preferences.end();
+    Serial.print("LastDayPopulate at start : ");
+    Serial.println(lastDayPopulate);
 
     // reset everything
     // memset(lastYear, 0, sizeof(lastYear));
     // memset(thisYear, 0, sizeof(thisYear));
     // lastDayPopulate = 0;
-    // lastDayPopulate = 1733910190;
+    // lastDayPopulate = 1733910192;
     // thisYear[333].climbBike = 0;
     // thisYear[333].distBike = 0;
     // thisYear[345].climbRun = 0;
@@ -328,7 +330,7 @@ void populateDB(void)
     Serial.println(endTimestamp);
 
     getYearActivities(startTimestamp, endTimestamp);
-
+    Serial.print("lastdaypopulate end : ");
     Serial.println(lastDayPopulate);
 }
 

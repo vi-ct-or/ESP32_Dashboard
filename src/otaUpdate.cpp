@@ -37,7 +37,9 @@ void updateFW()
     Serial.println(newVersion);
     if (newVersion > currentVersion)
     {
-        displayUpdating();
+
+        refresh = true; // display should be refreshed after update
+        displayUpdating(0);
         if (getFileFromServer())
         {
             if (performOTAUpdateFromSPIFFS())
@@ -46,7 +48,7 @@ void updateFW()
             }
         }
         preferences3.end();
-        delay(1000);
+        delay(5000);
         ESP.restart(); // Restart ESP32 to apply the update
     }
     preferences3.end();
@@ -93,6 +95,7 @@ bool getFileFromServer()
         String http_response_code = "error";
         const size_t bufferSize = 1024; // Buffer size for reading data
         uint8_t buffer[bufferSize];
+        displayUpdating(1);
 
         // Loop to read HTTP response headers
         while (client.connected() && !endOfHeaders)
@@ -121,11 +124,14 @@ bool getFileFromServer()
             {
                 size_t bytesRead = client.readBytes(buffer, bufferSize);
                 file.write(buffer, bytesRead); // Write data to file
+                Serial.println(bytesRead);
             }
         }
         file.close();  // Close the file
         client.stop(); // Close the client connection
         Serial.println("File saved successfully");
+        displayUpdating(2);
+
         l_ret = true;
     }
     else
@@ -148,6 +154,8 @@ bool performOTAUpdateFromSPIFFS()
     }
 
     Serial.println("Starting update..");
+    displayUpdating(3);
+
     size_t fileSize = file.size(); // Get the file size
     Serial.println(fileSize);
 
@@ -155,6 +163,7 @@ bool performOTAUpdateFromSPIFFS()
     if (!Update.begin(fileSize, U_FLASH))
     {
         Serial.println("Cannot do the update");
+        displayUpdating(4);
         return false;
     }
 
@@ -165,10 +174,12 @@ bool performOTAUpdateFromSPIFFS()
     if (Update.end())
     {
         Serial.println("Successful update");
+        displayUpdating(5);
         l_ret = true;
     }
     else
     {
+        displayUpdating(4);
         Serial.println("Error Occurred:" + String(Update.getError()));
         return false;
     }
