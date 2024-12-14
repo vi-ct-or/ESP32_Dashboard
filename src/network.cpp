@@ -5,7 +5,6 @@
 void initWifi()
 {
     WiFi.mode(WIFI_STA);
-    connectWifi(10000);
 }
 bool connectWifi(int timeoutms)
 {

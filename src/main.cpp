@@ -1,39 +1,73 @@
 #include <Arduino.h>
+#include <Preferences.h>
+#include "esp_sntp.h"
 #include "otaUpdate.h"
 #include "strava.h"
 #include "displayEpaper.h"
 #include "network.h"
-#include <Preferences.h>
 
 #define NB_MENU 5
+#define uS_TO_S_FACTOR 1000000ULL
+#define DEEPSLEEP_TIME 50
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
 // your time zone (https://remotemonitoringsystems.ca/time-zone-abbreviations.php)
 const char *TZ_INFO = "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00";
 struct tm timeinfo1;
-uint8_t prevMinute = 255;
-uint8_t prevHour = 255;
-uint8_t prevDay = 255;
-uint8_t prevMenu = UINT8_MAX, currentMenu = 0;
+RTC_DATA_ATTR uint8_t prevMinute;
+RTC_DATA_ATTR uint8_t prevHour;
+RTC_DATA_ATTR uint8_t prevDay;
 uint16_t prevYear;
 Preferences preferences2;
 const int buttonPin = 0;
+esp_sleep_wakeup_cause_t wakeup_reason;
+bool goToSleep = false;
+RTC_DATA_ATTR bool doSyncNtp = false;
 
 static void IRAM_ATTR buttonInterrupt(void);
+void syncNTP();
+void cbSyncTime(struct timeval *tv);
 
 void setup()
 {
   Serial.begin(9600);
   Serial.println("START");
-  attachInterrupt(buttonPin, buttonInterrupt, FALLING);
-  initWifi();
+  pinMode(2, OUTPUT);
+  digitalWrite(2, HIGH);
+  sntp_set_time_sync_notification_cb(cbSyncTime);
 
-  configTzTime(TZ_INFO, NTP_SERVER);
-  while (!getLocalTime(&timeinfo1))
-    ;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  // attachInterrupt(buttonPin, buttonInterrupt, FALLING);
+
+  initWifi();
   initDisplay();
-  updateFW();
+  // syncNTP();
+  configTzTime(TZ_INFO, NTP_SERVER);
+  if (doSyncNtp && connectWifi(10000))
+  {
+    Serial.println(sntp_restart());
+    doSyncNtp = false;
+  }
+  if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
+  {
+    connectWifi(10000);
+    // first boot
+    Serial.println("wakeup after reset");
+    Serial.println(wakeup_reason);
+
+    updateFW();
+    while (!getLocalTime(&timeinfo1))
+      ;
+    prevMinute = 255;
+    prevHour = 255;
+    prevDay = 255;
+  }
+  else
+  {
+    Serial.println("wakeup after deepsleep timer");
+  }
+  displayTemplate();
 
   preferences2.begin("date", false);
   prevYear = preferences2.getUShort("prevYear", timeinfo1.tm_year + 1900);
@@ -44,18 +78,30 @@ void loop()
 {
   // update time
   getLocalTime(&timeinfo1);
-  if (timeinfo1.tm_min != prevMinute && currentMenu != 4)
+  if (timeinfo1.tm_min != prevMinute)
   {
+    Serial.println("update minute");
     prevMinute = timeinfo1.tm_min;
     displayTime(&timeinfo1);
+    Serial.print(timeinfo1.tm_hour);
+    Serial.print(":");
+    Serial.println(timeinfo1.tm_min);
+    if (timeinfo1.tm_min == 59 || timeinfo1.tm_min == 14 || timeinfo1.tm_min == 29 || timeinfo1.tm_min == 44)
+    {
+      doSyncNtp = true;
+    }
+
+    goToSleep = true;
   }
   if (timeinfo1.tm_mday != prevDay)
   {
+    Serial.println("update day");
     prevDay = timeinfo1.tm_mday;
     displayDate(&timeinfo1);
   }
   if (timeinfo1.tm_year + 1900 == prevYear + 1)
   {
+    Serial.println("update year");
     newYearBegin();
     preferences2.begin("date", false);
     prevYear = timeinfo1.tm_year + 1900;
@@ -64,6 +110,14 @@ void loop()
   }
   if (timeinfo1.tm_hour != prevHour)
   {
+    Serial.println("update hour");
+    if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
+    {
+      if (connectWifi(10000))
+      {
+        updateFW();
+      }
+    }
     prevHour = timeinfo1.tm_hour;
     if (connectWifi(10000))
     {
@@ -76,9 +130,28 @@ void loop()
         displayStravaPolyline();
         newActivity = false;
       }
-      disconnectWifi();
     }
-    prevMenu = UINT8_MAX; // to refresh current menu with new activity
+    // prevMenu = UINT8_MAX; // to refresh current menu with new activity
+  }
+  if (goToSleep)
+  {
+    uint8_t sleepTime = 58;
+    if (refresh || doSyncNtp)
+    {
+      sleepTime = 49;
+    }
+    getLocalTime(&timeinfo1);
+    if (timeinfo1.tm_sec < 50)
+    {
+      digitalWrite(2, LOW);
+      esp_sleep_enable_timer_wakeup((sleepTime - timeinfo1.tm_sec) * uS_TO_S_FACTOR);
+      Serial.print("Going to sleep for ");
+      Serial.print(sleepTime - timeinfo1.tm_sec);
+      Serial.println("seconds");
+      Serial.flush();
+      esp_deep_sleep_start();
+    }
+    goToSleep = false;
   }
 
   delay(1000);
@@ -86,17 +159,28 @@ void loop()
 
 static void IRAM_ATTR buttonInterrupt(void)
 {
-  static unsigned long last_interrupt_time = 0;
-  unsigned long interrupt_time = millis();
-  // If interrupts come faster than 500ms, assume it's a bounce and ignore
-  if ((interrupt_time - last_interrupt_time > 500) || last_interrupt_time > interrupt_time)
-  {
+  // static unsigned long last_interrupt_time = 0;
+  // unsigned long interrupt_time = millis();
+  // // If interrupts come faster than 500ms, assume it's a bounce and ignore
+  // if ((interrupt_time - last_interrupt_time > 500) || last_interrupt_time > interrupt_time)
+  // {
 
-    currentMenu++;
-    if (currentMenu >= NB_MENU)
-    {
-      currentMenu = 0;
-    }
-    last_interrupt_time = interrupt_time;
-  }
+  //   currentMenu++;
+  //   if (currentMenu >= NB_MENU)
+  //   {
+  //     currentMenu = 0;
+  //   }
+  //   last_interrupt_time = interrupt_time;
+  // }
+}
+
+void syncNTP()
+{
+  setenv("TZ", TZ_INFO, 1); // Set environment variable with your time zone - causes NTP call
+  tzset();
+}
+
+void cbSyncTime(struct timeval *tv)
+{ // callback function to show when NTP was synchronized
+  Serial.println("callback NTP time now synched");
 }
