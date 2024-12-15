@@ -239,8 +239,13 @@ void drawText(int16_t x, int16_t y, const char *text)
 void drawTimeStr(const void *pv)
 {
     const struct tm *now = (const struct tm *)pv;
-    std::string timeStr = std::to_string(now->tm_hour) + ":";
     display.setTextSize(6);
+    std::string timeStr;
+    if (now->tm_hour < 10)
+    {
+        timeStr = "0";
+    }
+    timeStr += std::to_string(now->tm_hour) + ":";
     if (now->tm_min < 10)
     {
         timeStr += "0";
@@ -679,6 +684,7 @@ void drawLastTwelveMonths(const void *pv)
             break;
 
         default:
+            monthLetter = '?';
             break;
         }
         display.print(monthLetter);
