@@ -5,6 +5,7 @@
 #include "strava.h"
 #include "displayEpaper.h"
 #include "network.h"
+#include <nvs_flash.h>
 
 #define NB_MENU 5
 #define uS_TO_S_FACTOR 1000000ULL
@@ -18,6 +19,7 @@ struct tm timeinfo1;
 RTC_DATA_ATTR uint8_t prevMinute;
 RTC_DATA_ATTR uint8_t prevHour;
 RTC_DATA_ATTR uint8_t prevDay;
+RTC_DATA_ATTR uint8_t prevMonth;
 uint16_t prevYear;
 Preferences preferences2;
 const int buttonPin = 0;
@@ -31,6 +33,10 @@ void cbSyncTime(struct timeval *tv);
 
 void setup()
 {
+  // nvs_flash_erase(); // erase the NVS partition and...
+  // nvs_flash_init();  // initialize the NVS partition.
+  // while (true)
+  //   ;
   Serial.begin(9600);
   Serial.println("START");
   pinMode(2, OUTPUT);
@@ -62,16 +68,15 @@ void setup()
     prevMinute = 255;
     prevHour = 255;
     prevDay = 255;
+    preferences2.begin("date", false);
+    prevMonth = preferences2.getUShort("prevMonth", timeinfo1.tm_mon);
+    preferences2.end();
   }
   else
   {
     Serial.println("wakeup after deepsleep timer");
   }
   displayTemplate();
-
-  preferences2.begin("date", false);
-  prevYear = preferences2.getUShort("prevYear", timeinfo1.tm_year + 1900);
-  preferences2.end();
 }
 
 void loop()
@@ -90,6 +95,18 @@ void loop()
     {
       doSyncNtp = true;
     }
+    // if (connectWifi(10000))
+    // {
+    //   populateDB();
+    //   if (newActivity)
+    //   {
+    //     displayStravaAllYear();
+    //     displayStravaMonths(&timeinfo1);
+    //     displayLastActivity();
+    //     displayStravaPolyline();
+    //     newActivity = false;
+    //   }
+    // }
 
     goToSleep = true;
   }
@@ -99,13 +116,15 @@ void loop()
     prevDay = timeinfo1.tm_mday;
     displayDate(&timeinfo1);
   }
-  if (timeinfo1.tm_year + 1900 == prevYear + 1)
+  if (timeinfo1.tm_mon != prevMonth)
   {
-    Serial.println("update year");
-    newYearBegin();
+    Serial.println("update month");
+    Serial.print("prevMonth");
+    Serial.println(prevMonth);
+    newMonthBegin(timeinfo1);
     preferences2.begin("date", false);
-    prevYear = timeinfo1.tm_year + 1900;
-    preferences2.putUShort("prevYear", prevYear);
+    prevMonth = timeinfo1.tm_mon;
+    preferences2.putUShort("prevMonth", prevMonth);
     preferences2.end();
   }
   if (timeinfo1.tm_hour != prevHour)
