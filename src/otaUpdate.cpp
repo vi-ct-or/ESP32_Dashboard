@@ -62,7 +62,8 @@ uint8_t getVersion()
     int httpResponse = http.GET();
     if (httpResponse == 200)
     {
-        version = (uint8_t)http.getString().toInt();
+        String resp = http.getString();
+        version = (uint8_t)resp.toInt();
     }
 
     http.end();

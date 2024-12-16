@@ -9,10 +9,10 @@
 
 typedef struct sDistDay
 {
-    uint16_t distRun;
-    uint16_t distBike;
-    // uint32_t timeRun;
-    // uint32_t timeBike;
+    uint32_t distRun;
+    uint32_t distBike;
+    uint32_t timeRun;
+    uint32_t timeBike;
     uint16_t climbRun;
     uint16_t climbBike;
 } TsDistDay;
@@ -21,10 +21,13 @@ typedef struct sDistDay
 #define DAYS_BY_YEAR 366
 #define THIS_YEAR_OFFSET 366
 
+const uint16_t monthOffset[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
+
 const char activitiesUrl[] = "https://www.strava.com/api/v3/athlete/activities?";
 // struct tm tm;
-TsDistDay thisYear[DAYS_BY_YEAR];
-TsDistDay lastYear[DAYS_BY_YEAR];
+// TsDistDay thisYear[DAYS_BY_YEAR];
+// TsDistDay lastYear[DAYS_BY_YEAR];
+TsDistDay loopYear[DAYS_BY_YEAR];
 uint64_t lastActivitiesId[10];
 time_t lastDayPopulate;
 struct tm timeinfo;
@@ -131,7 +134,6 @@ int8_t getLastActivitieDist(time_t start, time_t end)
     {
         Serial.println("YEAH");
         String resp = http.getString();
-        // const char *resp = http.getString().c_str();
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, resp.c_str());
 
@@ -150,6 +152,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
             Serial.println("no error");
             JsonArray array = doc.as<JsonArray>();
             bool isFirst = true;
+            time_t prevLastActivityTimestamp = lastActivity.timestamp;
             for (JsonVariant v : array)
             {
                 if (v["trainer"].as<bool>() == true)
@@ -177,8 +180,9 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                     }
                     lastActivity.timestamp = activityStartTime;
                 }
-                if (activityStartTime == lastDayPopulate)
+                if (activityStartTime == lastDayPopulate || prevLastActivityTimestamp == activityStartTime)
                 {
+                    // dont process previous last activity, it was already accounted
                     continue;
                 }
 
@@ -188,38 +192,30 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 {
                     lastDayPopulate = activityStartTime /*+ utcOffset*/;
                 }
-
+                Serial.println("added to year array");
+                uint16_t dayIdx = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
                 switch (activityType)
                 {
                 case ACTIVITY_TYPE_BIKE:
-                    if (tm.tm_year == timeinfo.tm_year)
-                    {
-                        thisYear[tm.tm_yday].distBike += (uint16_t)(v["distance"].as<float>() / 10.0);
-                        thisYear[tm.tm_yday].climbBike += v["total_elevation_gain"].as<int>();
-                    }
-                    else
-                    {
-                        lastYear[tm.tm_yday].distBike += (uint16_t)(v["distance"].as<float>() / 10.0);
-                        lastYear[tm.tm_yday].climbBike += v["total_elevation_gain"].as<int>();
-                    }
+
+                    loopYear[dayIdx].distBike += (uint32_t)v["distance"].as<float>() * 10.0;
+                    loopYear[dayIdx].climbBike += v["total_elevation_gain"].as<int>();
+                    loopYear[dayIdx].timeBike += (uint32_t)(v["moving_time"].as<int>());
+
                     break;
                 case ACTIVITY_TYPE_RUN:
-                    if (tm.tm_year == timeinfo.tm_year)
-                    {
-                        thisYear[tm.tm_yday].distRun += (uint16_t)(v["distance"].as<float>() / 10.0);
-                        thisYear[tm.tm_yday].climbRun += v["total_elevation_gain"].as<int>();
-                    }
-                    else
-                    {
-                        lastYear[tm.tm_yday].distRun += (uint16_t)(v["distance"].as<float>() / 10.0);
-                        lastYear[tm.tm_yday].climbRun += v["total_elevation_gain"].as<int>();
-                    }
+
+                    loopYear[dayIdx].distRun += (uint32_t)(v["distance"].as<float>() * 10.0);
+                    loopYear[dayIdx].climbRun += v["total_elevation_gain"].as<int>();
+                    loopYear[dayIdx].timeRun += (uint32_t)(v["moving_time"].as<int>());
+
                     break;
                 default:
                     Serial.println("UNKNOWN TYPE");
                     break;
                 }
-
+                Serial.print(dayIdx);
+                Serial.print(" : ");
                 Serial.print(v["name"].as<String>());
                 Serial.print(" : ");
                 Serial.print(v["distance"].as<float>() / 1000.0, 2);
@@ -285,21 +281,28 @@ void populateDB(void)
     preferences.begin("stravaDB", false);
 
     lastDayPopulate = preferences.getLong("lastTimestamp", 0);
-    preferences.getBytes("lastYear", lastYear, sizeof(lastYear));
-    preferences.getBytes("thisYear", thisYear, sizeof(thisYear));
+    preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
     preferences.end();
     Serial.print("LastDayPopulate at start : ");
     Serial.println(lastDayPopulate);
+    if (lastDayPopulate == 0)
+    {
+        while (true)
+            ;
+    }
 
     // reset everything
     // memset(lastYear, 0, sizeof(lastYear));
     // memset(thisYear, 0, sizeof(thisYear));
     // lastDayPopulate = 0;
     // lastDayPopulate = 1733910192;
-    // thisYear[333].climbBike = 0;
-    // thisYear[333].distBike = 0;
-    // thisYear[345].climbRun = 0;
-    // thisYear[345].distRun = 0;
+    // for (uint16_t i = 345; i < 360; i++)
+    // {
+    //     thisYear[i].climbRun = 0;
+    //     thisYear[i].distRun = 0;
+    //     thisYear[i].climbBike = 0;
+    //     thisYear[i].distBike = 0;
+    // }
 
     struct tm tmpTm;
     time_t startTimestamp, endTimestamp;
@@ -309,13 +312,15 @@ void populateDB(void)
         Serial.println("getLocalTime Failed");
     }
 
-    // get all last year activities
-    char firstDayOfYear[] = "2024-01-01T01:01:00Z";
-    // get timestamp of first day of last year
+    // get timestamp of month afer day one year ago
     if (lastDayPopulate == 0)
     {
-        timeStringToTm(firstDayOfYear, &tmpTm);
         tmpTm.tm_year = timeinfo.tm_year - 1;
+        tmpTm.tm_mon = timeinfo.tm_mon + 1;
+        tmpTm.tm_mday = 1;
+        tmpTm.tm_hour = 1;
+        tmpTm.tm_min = 1;
+        tmpTm.tm_sec = 1;
         startTimestamp = mktime(&tmpTm);
     }
     else
@@ -330,6 +335,11 @@ void populateDB(void)
     Serial.println(endTimestamp);
 
     getYearActivities(startTimestamp, endTimestamp);
+    // save loopYear
+    preferences.begin("stravaDB", false);
+    preferences.putLong("lastTimestamp", lastDayPopulate);
+    preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+    preferences.end();
     Serial.print("lastdaypopulate end : ");
     Serial.println(lastDayPopulate);
 }
@@ -339,7 +349,6 @@ void getYearActivities(time_t start, time_t end)
 
     time_t tmp = start;
     int8_t ret = -1;
-    preferences.begin("stravaDB", false);
 
     while (tmp < end)
     {
@@ -359,20 +368,11 @@ void getYearActivities(time_t start, time_t end)
             {
                 // save arrays, save lastDay populate, exit
                 Serial.println("error 429, too much requests, exit");
-                preferences.putLong("lastTimestamp", lastDayPopulate);
-                preferences.putBytes("lastYear", lastYear, sizeof(lastYear));
-                preferences.putBytes("thisYear", thisYear, sizeof(thisYear));
-                preferences.end();
                 return;
             }
         }
         start = tmp + 1;
     }
-    // save arrays, save lastDay populate, exit
-    preferences.putLong("lastTimestamp", lastDayPopulate);
-    preferences.putBytes("lastYear", lastYear, sizeof(lastYear));
-    preferences.putBytes("thisYear", thisYear, sizeof(thisYear));
-    preferences.end();
 }
 
 void printDB(uint16_t nbDays)
@@ -382,15 +382,11 @@ void printDB(uint16_t nbDays)
     {
         Serial.print(i);
         Serial.print(" -> ");
-        Serial.print("Last Year : Run ");
-        Serial.print(lastYear[i].distRun);
+        Serial.print("loop Year : Run ");
+        Serial.print(loopYear[i].distRun);
         Serial.print(" Bike ");
-        Serial.print(lastYear[i].distBike);
-        Serial.print(" ; ");
-        Serial.print("ThisYear : Run ");
-        Serial.print(thisYear[i].distRun);
-        Serial.print(" Bike ");
-        Serial.println(thisYear[i].distBike);
+        Serial.print(loopYear[i].distBike);
+        Serial.println(" ; ");
     }
 }
 
@@ -444,30 +440,27 @@ TeActivityType getActivityType(const char *str)
     return ret;
 }
 
-float getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint16_t startDay, uint16_t endDay)
+uint32_t getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint16_t startDay, uint16_t endDay)
 {
-    float ret = 0.0;
+    uint32_t ret = 0;
     uint16_t maxValue;
-    TsDistDay *arr;
-    if (year == true)
-    { // this year
-        arr = thisYear;
-    }
-    else
-    {
-        arr = lastYear;
-    }
+
     if (activityType == ACTIVITY_TYPE_BIKE)
     {
         for (uint16_t i = startDay; i < endDay + 1; i++)
         {
             if (dataType == DATA_TYPE_DENIV)
             {
-                ret += (int)arr[i].climbBike;
+                ret += loopYear[i].climbBike;
             }
             else if (dataType == DATA_TYPE_DISTANCE)
             {
-                ret += (float)arr[i].distBike / 100.0;
+                ret += loopYear[i].distBike;
+            }
+            else if (dataType == DATA_TYPE_TIME)
+            {
+                // ret += 0;
+                ret += loopYear[i].timeBike;
             }
         }
     }
@@ -477,11 +470,16 @@ float getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint
         {
             if (dataType == DATA_TYPE_DENIV)
             {
-                ret += (int)arr[i].climbRun;
+                ret += loopYear[i].climbRun;
             }
             else if (dataType == DATA_TYPE_DISTANCE)
             {
-                ret += (float)arr[i].distRun / 100.0;
+                ret += loopYear[i].distRun;
+            }
+            else if (dataType == DATA_TYPE_TIME)
+            {
+                // ret += 0;
+                ret += loopYear[i].timeRun;
             }
         }
     }
@@ -492,10 +490,19 @@ float getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint
 void newYearBegin()
 {
     // copy this year to lastYear
-    memcpy(lastYear, thisYear, sizeof(lastYear));
+    // memcpy(lastYear, thisYear, sizeof(lastYear));
 
     // reset this year
-    memset(thisYear, 0, sizeof(thisYear));
+    // memset(thisYear, 0, sizeof(thisYear));
+}
+
+void newMonthBegin(struct tm tm)
+{
+
+    for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
+    {
+        memset(&loopYear[i], 0, sizeof(TsDistDay));
+    }
 }
 
 TsActivity *getStravaLastActivity()
