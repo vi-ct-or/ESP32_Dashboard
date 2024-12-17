@@ -119,13 +119,14 @@ bool getFileFromServer()
         Serial.println("HTTP response code: " + http_response_code); // Print received headers
 
         // Loop to read and write raw data to file
+        int cnt = 0;
         while (client.connected())
         {
             if (client.available())
             {
                 size_t bytesRead = client.readBytes(buffer, bufferSize);
                 file.write(buffer, bytesRead); // Write data to file
-                Serial.println(bytesRead);
+                Serial.println(cnt++);
             }
         }
         file.close();  // Close the file

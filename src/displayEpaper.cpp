@@ -160,7 +160,10 @@ void displayStravaToday()
 
 void displayUpdating(uint8_t state)
 {
-
+    if (state == 0)
+    {
+        display.clearScreen();
+    }
     display.drawPaged(drawUpdating, (void *)&state);
     display.hibernate();
 }
@@ -689,6 +692,7 @@ void drawUpdating(const void *pv)
     switch (state)
     {
     case 0:
+        display.setFullWindow();
         drawText(1, 5, "New version available");
         break;
     case 1:
