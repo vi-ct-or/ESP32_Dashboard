@@ -285,15 +285,8 @@ void populateDB(void)
     preferences.end();
     Serial.print("LastDayPopulate at start : ");
     Serial.println(lastDayPopulate);
-    if (lastDayPopulate == 0)
-    {
-        while (true)
-            ;
-    }
 
     // reset everything
-    // memset(lastYear, 0, sizeof(lastYear));
-    // memset(thisYear, 0, sizeof(thisYear));
     // lastDayPopulate = 0;
     // lastDayPopulate = 1733910192;
     // for (uint16_t i = 345; i < 360; i++)
