@@ -461,7 +461,7 @@ void drawStravaPolyline(const void *pv)
 void drawLastActivity(const void *pv)
 {
     TsActivity *lastActivity = getStravaLastActivity();
-    std::string displStr, dist, name, time, duration, deniv;
+    std::string displStr, dist, name, time, duration, deniv, speed;
     name = lastActivity->name; // name
     if (name.size() > 10)
     {
@@ -472,9 +472,18 @@ void drawLastActivity(const void *pv)
             name.erase(11, 1);
         }
     }
-    if (name.size() > 19)
+    if (name.size() > 20)
     {
-        name.resize(19);
+        name.insert(20, 1, '\n');
+
+        if (name[21] == ' ')
+        {
+            name.erase(21, 1);
+        }
+    }
+    if (name.size() > 30)
+    {
+        name.resize(30);
     }
     dist = std::to_string((float)lastActivity->dist / 100.0); // dist
     uint8_t dotIdx = dist.find('.');
@@ -487,6 +496,12 @@ void drawLastActivity(const void *pv)
     deniv += "m d+";
     deniv.insert(0, 10 - deniv.size(), ' ');
 
+    speed = std::to_string(((float)(((float)lastActivity->dist / 100.0)) / (float)lastActivity->time * 3600.0));
+    dotIdx = speed.find('.');
+    speed.resize(dotIdx + 3);
+    speed += "km/h";
+    speed.insert(0, 10 - speed.size(), ' ');
+
     displStr = name;
     displStr += "\n\n";
     displStr += dist;
@@ -494,6 +509,8 @@ void drawLastActivity(const void *pv)
     displStr += duration;
     displStr += "\n";
     displStr += deniv;
+    displStr += "\n";
+    displStr += speed;
     display.setTextSize(2);
     drawText(0, 260, displStr.c_str());
 }
