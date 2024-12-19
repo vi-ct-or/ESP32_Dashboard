@@ -1,0 +1,2 @@
+void initGpsTime();
+bool setGPSTime();

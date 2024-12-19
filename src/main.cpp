@@ -1,15 +1,18 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#include <esp_task_wdt.h>
+#include <nvs_flash.h>
 #include "esp_sntp.h"
 #include "otaUpdate.h"
 #include "strava.h"
 #include "displayEpaper.h"
 #include "network.h"
-#include <nvs_flash.h>
+#include "GPSTime.h"
 
 #define NB_MENU 5
 #define uS_TO_S_FACTOR 1000000ULL
 #define DEEPSLEEP_TIME 50
+#define WDT_TIMEOUT 60
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
@@ -39,6 +42,10 @@ void setup()
   //   ;
   Serial.begin(9600);
   Serial.println("START");
+
+  esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
+  esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
+
   pinMode(2, OUTPUT);
   digitalWrite(2, HIGH);
   sntp_set_time_sync_notification_cb(cbSyncTime);
@@ -48,13 +55,24 @@ void setup()
 
   initWifi();
   initDisplay();
-  // syncNTP();
-  configTzTime(TZ_INFO, NTP_SERVER);
-  if (doSyncNtp && connectWifi(10000))
+  initGpsTime();
+
+  if (setGPSTime())
   {
-    Serial.println(sntp_restart());
-    doSyncNtp = false;
+    setenv("TZ", "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00", 1);
+    tzset();
+    Serial.println("Set By GPS");
   }
+  else
+  {
+    configTzTime(TZ_INFO, NTP_SERVER);
+    if (doSyncNtp && connectWifi(10000))
+    {
+      Serial.println(sntp_restart());
+    }
+  }
+  doSyncNtp = false;
+
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
     connectWifi(10000);
@@ -107,7 +125,6 @@ void loop()
     //     newActivity = false;
     //   }
     // }
-
     goToSleep = true;
   }
   if (timeinfo1.tm_mday != prevDay)
@@ -129,6 +146,7 @@ void loop()
   }
   if (timeinfo1.tm_hour != prevHour)
   {
+    goToSleep = false;
     Serial.println("update hour");
     if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
     {
@@ -154,20 +172,21 @@ void loop()
   }
   if (goToSleep)
   {
-    uint8_t sleepTime = 58;
+    esp_task_wdt_reset();
+    uint8_t sleepTime = 57;
     if (refresh || doSyncNtp)
     {
-      sleepTime = 49;
+      sleepTime = 48;
     }
     getLocalTime(&timeinfo1);
-    if (timeinfo1.tm_sec < 50)
+    if (timeinfo1.tm_sec < sleepTime - 1)
     {
-      digitalWrite(2, LOW);
       esp_sleep_enable_timer_wakeup((sleepTime - timeinfo1.tm_sec) * uS_TO_S_FACTOR);
       Serial.print("Going to sleep for ");
       Serial.print(sleepTime - timeinfo1.tm_sec);
       Serial.println("seconds");
       Serial.flush();
+      digitalWrite(2, LOW);
       esp_deep_sleep_start();
     }
     goToSleep = false;
