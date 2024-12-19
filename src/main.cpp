@@ -146,7 +146,6 @@ void loop()
   }
   if (timeinfo1.tm_hour != prevHour)
   {
-    goToSleep = false;
     Serial.println("update hour");
     if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
     {
