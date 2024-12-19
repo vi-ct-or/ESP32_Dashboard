@@ -11,7 +11,7 @@
 #include "displayEpaper.h"
 
 #define SQUARE_SIZE 150
-GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(/*CS=5*/ 5, /*DC=*/4, /*RES=*/16, /*BUSY=*/15)); // 400x300, SSD1683
+GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(/*CS=5*/ 5, /*DC=*/4, /*RES=*/19, /*BUSY=*/15)); // 400x300, SSD1683
 
 int getMaxLat();
 int getMaxLng();
@@ -22,8 +22,8 @@ void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
 void drawStravaPolyline(const void *pv);
 void drawFull(const void *pv);
-void drawMonth(const void *pv);
 void drawLastTwelveMonths(const void *pv);
+void drawWeeks(const void *pv);
 void drawLastActivity(const void *pv);
 void secondsToHour(time_t timestamp, std::string *out);
 void printSTDString(std::string str);
@@ -70,15 +70,15 @@ void displayStravaAllYear()
     display.hibernate();
 }
 
-void displayStravaThisMonth(struct tm *now)
-{
-    display.drawPaged(drawMonth, (const void *)now);
-    display.hibernate();
-}
-
 void displayStravaMonths(struct tm *now)
 {
     display.drawPaged(drawLastTwelveMonths, (const void *)now);
+    display.hibernate();
+}
+
+void displayStravaWeeks(struct tm *now)
+{
+    display.drawPaged(drawWeeks, (const void *)now);
     display.hibernate();
 }
 
@@ -86,76 +86,6 @@ void displayLastActivity()
 {
     display.drawPaged(drawLastActivity, 0);
     display.hibernate();
-}
-
-void displayStravaYTD()
-{
-    struct tm timeinfo;
-    getLocalTime(&timeinfo);
-    display.setCursor(0, 20);
-    display.println("2024    YTD   2023\n");
-    display.print((int)getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 1, 0, timeinfo.tm_yday));
-    display.print("km        ");
-    display.print((int)getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 0, 0, timeinfo.tm_yday));
-    display.println("km");
-    // display.print(getTotal(ACTIVITY_TYPE_RUN, true, 1, true));
-    // display.println("m d+");
-    display.print((int)getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 1, 0, timeinfo.tm_yday));
-    display.print("km       ");
-    display.print((int)getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 0, 0, timeinfo.tm_yday));
-    display.println("km");
-    // display.print(getTotal(ACTIVITY_TYPE_BIKE, true, 1, true));
-    // display.println("m d+");
-    display.display();
-}
-
-void displayStravaCurrentWeek()
-{
-    struct tm timeinfo;
-    getLocalTime(&timeinfo);
-
-    uint16_t startDay = timeinfo.tm_yday - (timeinfo.tm_wday + 6) % 7;
-    uint16_t endDay = timeinfo.tm_yday;
-    display.setCursor(0, 20);
-    display.println("This week\n");
-    display.print(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 1, startDay, endDay));
-    display.print("km   ");
-    display.print((int)getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 1, startDay, endDay));
-    display.println("m d+");
-    display.print(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 1, startDay, endDay));
-    display.print("km   ");
-    display.print((int)getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 1, startDay, endDay));
-    display.println("m d+");
-    display.display();
-}
-
-void displayStravaToday()
-{
-    struct tm timeinfo;
-    getLocalTime(&timeinfo);
-
-    uint16_t startDay = timeinfo.tm_yday;
-    uint16_t endDay = timeinfo.tm_yday;
-    float distBike = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 1, startDay, endDay);
-    float distRun = getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 1, startDay, endDay);
-
-    display.setCursor(0, 20);
-    display.println("Today\n");
-    if (distRun > 0.1)
-    {
-        display.print(distRun);
-        display.print("km   ");
-        display.print((int)getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 1, startDay, endDay));
-        display.println("m d+");
-    }
-    if (distBike > 0.1)
-    {
-        display.print(distBike);
-        display.print("km   ");
-        display.print((int)getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 1, startDay, endDay));
-        display.println("m d+");
-    }
-    display.display();
 }
 
 void displayUpdating(uint8_t state)
@@ -166,12 +96,6 @@ void displayUpdating(uint8_t state)
     }
     display.drawPaged(drawUpdating, (void *)&state);
     display.hibernate();
-}
-
-void displayText(const char msg[])
-{
-    display.println(msg);
-    display.display();
 }
 
 void displayStravaPolyline()
@@ -370,11 +294,11 @@ void drawYearStr(const void *pv)
     getLocalTime(&tm);
     uint16_t currentDay = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
     // bike
-    dist = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 1, 0, currentDay) / 10000);
+    dist = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 0, currentDay) / 10000);
     dist.insert(0, 5 - dist.size(), ' ');
-    time = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_TIME, 1, 0, currentDay) / 3600);
+    time = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_TIME, 0, currentDay) / 3600);
     time.insert(0, 3 - time.size(), ' ');
-    deniv = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 1, 0, currentDay));
+    deniv = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 0, currentDay));
     deniv.insert(0, 6 - deniv.size(), ' ');
     yearStravaBike = dist;
     yearStravaBike += "km ";
@@ -384,11 +308,11 @@ void drawYearStr(const void *pv)
     yearStravaBike += "m";
 
     // run
-    dist = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 1, 0, currentDay) / 10000);
+    dist = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 0, currentDay) / 10000);
     dist.insert(0, 5 - dist.size(), ' ');
-    time = time = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_TIME, 1, 0, currentDay) / 3600);
+    time = time = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_TIME, 0, currentDay) / 3600);
     time.insert(0, 3 - time.size(), ' ');
-    deniv = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 1, 0, currentDay));
+    deniv = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 0, currentDay));
     deniv.insert(0, 6 - deniv.size(), ' ');
     yearStravaRun = dist;
     yearStravaRun += "km ";
@@ -575,7 +499,7 @@ void drawLastTwelveMonths(const void *pv)
     {
         uint16_t startMonDay, endMonDay;
         uint32_t dist;
-        tmp.tm_mon = (now->tm_mon + 1 + i) % 12;
+        tmp.tm_mon = (now->tm_mon + i + 1) % 12;
         if (tmp.tm_mon == 0 && i != 0)
         {
             tmp.tm_year++;
@@ -608,12 +532,11 @@ void drawLastTwelveMonths(const void *pv)
         // Serial.print("endday : ");
         // Serial.println(tmp.tm_yday);
         endMonDay = monthOffset[tmp.tm_mon + 1] - 1;
-        bool isCurrentYear = tmp.tm_year == now->tm_year;
         Serial.print(startMonDay);
         Serial.print(" - ");
         Serial.println(endMonDay);
-        dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, isCurrentYear, startMonDay, endMonDay);
-        dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, isCurrentYear, startMonDay, endMonDay);
+        dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
+        dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
         yearMon[i] = dist / 10000;
         Serial.println(dist);
         if (dist / 10000 > maxMonth)
@@ -683,6 +606,11 @@ void drawLastTwelveMonths(const void *pv)
     display.print(maxMonth / 2);
     display.setCursor(0, y - 3);
     display.print(0);
+}
+
+void drawWeeks(const void *pv)
+{
+    uint16_t weeks[52];
 }
 
 void drawUpdating(const void *pv)

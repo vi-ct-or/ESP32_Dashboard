@@ -1,8 +1,9 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
-#include "Update.h"
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <esp_task_wdt.h>
+#include "Update.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "displayEpaper.h"
@@ -29,6 +30,7 @@ void updateFW()
     uint8_t currentVersion; // value will default to 0, if not set yet in NVS
     preferences3.begin("ota", false);
     currentVersion = preferences3.getUChar("swVersion", 0);
+    preferences3.end();
 
     uint8_t newVersion = getVersion();
     Serial.print("Current Version :");
@@ -44,14 +46,14 @@ void updateFW()
         {
             if (performOTAUpdateFromSPIFFS())
             {
+                preferences3.begin("ota", false);
                 preferences3.putUChar("swVersion", newVersion);
+                preferences3.end();
             }
         }
-        preferences3.end();
         delay(5000);
         ESP.restart(); // Restart ESP32 to apply the update
     }
-    preferences3.end();
 }
 
 uint8_t getVersion()
@@ -126,8 +128,8 @@ bool getFileFromServer()
             {
                 size_t bytesRead = client.readBytes(buffer, bufferSize);
                 file.write(buffer, bytesRead); // Write data to file
-                Serial.println(cnt++);
                 digitalWrite(2, !digitalRead(2));
+                esp_task_wdt_reset();
             }
         }
         file.close();  // Close the file
@@ -163,6 +165,8 @@ bool performOTAUpdateFromSPIFFS()
     Serial.println(fileSize);
 
     // Begin OTA update process with specified size and flash destination
+
+    esp_task_wdt_reset();
     if (!Update.begin(fileSize, U_FLASH))
     {
         Serial.println("Cannot do the update");

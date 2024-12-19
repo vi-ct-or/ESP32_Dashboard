@@ -6,6 +6,7 @@
 #include <Preferences.h>
 #include "strava.h"
 #include "Arduino.h"
+#include <esp_task_wdt.h>
 
 typedef struct sDistDay
 {
@@ -234,6 +235,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
     {
         Serial.println("OHHH");
     }
+    esp_task_wdt_reset();
     http.end();
     return ret;
 }
@@ -288,7 +290,7 @@ void populateDB(void)
 
     // reset everything
     // lastDayPopulate = 0;
-    // lastDayPopulate = 1733910192;
+    // lastDayPopulate = 1734377442;
     // for (uint16_t i = 345; i < 360; i++)
     // {
     //     thisYear[i].climbRun = 0;
@@ -330,11 +332,13 @@ void populateDB(void)
     getYearActivities(startTimestamp, endTimestamp);
     // save loopYear
     preferences.begin("stravaDB", false);
+    preferences.clear();
     preferences.putLong("lastTimestamp", lastDayPopulate);
     preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
     preferences.end();
     Serial.print("lastdaypopulate end : ");
     Serial.println(lastDayPopulate);
+    printDB(0);
 }
 
 void getYearActivities(time_t start, time_t end)
@@ -371,7 +375,7 @@ void getYearActivities(time_t start, time_t end)
 void printDB(uint16_t nbDays)
 {
     Serial.println("j -> run  ; bike ");
-    for (uint16_t i = 0; i < nbDays; i++)
+    for (uint16_t i = monthOffset[11]; i < monthOffset[12]; i++)
     {
         Serial.print(i);
         Serial.print(" -> ");
@@ -381,38 +385,6 @@ void printDB(uint16_t nbDays)
         Serial.print(loopYear[i].distBike);
         Serial.println(" ; ");
     }
-}
-
-void test()
-{
-    // Serial.println("start test");
-    // populateDB();
-    // // printDB(DAYS_BY_YEAR);
-    // Serial.println("THIS YEAR :");
-    // Serial.print("Total run : ");
-    // Serial.print(getTotal(ACTIVITY_TYPE_RUN, false, 1, true));
-    // Serial.print("km; ");
-    // Serial.print(getTotal(ACTIVITY_TYPE_RUN, true, 1, true));
-    // Serial.println("m d+");
-    // Serial.print("Total bike : ");
-    // Serial.print(getTotal(ACTIVITY_TYPE_BIKE, false, 1, true));
-    // Serial.print("km; ");
-    // Serial.print(getTotal(ACTIVITY_TYPE_BIKE, true, 1, true));
-    // Serial.println("m d+");
-
-    // Serial.println("\nLAST YEAR :");
-    // Serial.print("Total run : ");
-    // Serial.println(getTotal(ACTIVITY_TYPE_RUN, false, 0, true));
-    // Serial.print("Total bike : ");
-    // Serial.println(getTotal(ACTIVITY_TYPE_BIKE, false, 0, true));
-
-    // Serial.println("\nLAST YEAR ytd :");
-    // Serial.print("Total run : ");
-    // Serial.println(getTotal(ACTIVITY_TYPE_RUN, false, 0, false));
-    // Serial.print("Total bike : ");
-    // Serial.println(getTotal(ACTIVITY_TYPE_BIKE, false, 0, false));
-
-    // Serial.println("end test");
 }
 
 TeActivityType getActivityType(const char *str)
@@ -433,7 +405,7 @@ TeActivityType getActivityType(const char *str)
     return ret;
 }
 
-uint32_t getTotal(TeActivityType activityType, TeDataType dataType, bool year, uint16_t startDay, uint16_t endDay)
+uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay)
 {
     uint32_t ret = 0;
     uint16_t maxValue;
