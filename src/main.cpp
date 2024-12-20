@@ -23,6 +23,7 @@ RTC_DATA_ATTR uint8_t prevMinute;
 RTC_DATA_ATTR uint8_t prevHour;
 RTC_DATA_ATTR uint8_t prevDay;
 RTC_DATA_ATTR uint8_t prevMonth;
+
 uint16_t prevYear;
 Preferences preferences2;
 const int buttonPin = 0;
@@ -36,6 +37,8 @@ void cbSyncTime(struct timeval *tv);
 
 void setup()
 {
+
+  bool GPSSync = false;
   // nvs_flash_erase(); // erase the NVS partition and...
   // nvs_flash_init();  // initialize the NVS partition.
   // while (true)
@@ -62,9 +65,11 @@ void setup()
     setenv("TZ", "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00", 1);
     tzset();
     Serial.println("Set By GPS");
-  }
+    GPSSync = true;
+    }
   else
   {
+
     configTzTime(TZ_INFO, NTP_SERVER);
     if (doSyncNtp && connectWifi(10000))
     {
@@ -95,6 +100,7 @@ void setup()
     Serial.println("wakeup after deepsleep timer");
   }
   displayTemplate();
+  displayTimeSync(GPSSync);
 }
 
 void loop()
@@ -113,18 +119,6 @@ void loop()
     {
       doSyncNtp = true;
     }
-    // if (connectWifi(10000))
-    // {
-    //   populateDB();
-    //   if (newActivity)
-    //   {
-    //     displayStravaAllYear();
-    //     displayStravaMonths(&timeinfo1);
-    //     displayLastActivity();
-    //     displayStravaPolyline();
-    //     newActivity = false;
-    //   }
-    // }
     goToSleep = true;
   }
   if (timeinfo1.tm_mday != prevDay)
@@ -172,7 +166,7 @@ void loop()
   if (goToSleep)
   {
     esp_task_wdt_reset();
-    uint8_t sleepTime = 57;
+    uint8_t sleepTime = 53;
     if (refresh || doSyncNtp)
     {
       sleepTime = 48;
@@ -191,7 +185,8 @@ void loop()
     goToSleep = false;
   }
 
-  delay(1000);
+  esp_task_wdt_reset();
+  delay(100);
 }
 
 static void IRAM_ATTR buttonInterrupt(void)

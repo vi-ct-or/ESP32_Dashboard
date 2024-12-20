@@ -28,8 +28,11 @@ void drawLastActivity(const void *pv);
 void secondsToHour(time_t timestamp, std::string *out);
 void printSTDString(std::string str);
 void drawUpdating(const void *pv);
+void drawTimeSync(const void *pv);
 
 RTC_DATA_ATTR bool refresh = true;
+RTC_DATA_ATTR bool prevGPSSync = false;
+RTC_DATA_ATTR bool firstTime = true;
 
 void initDisplay(void)
 {
@@ -96,6 +99,17 @@ void displayUpdating(uint8_t state)
     }
     display.drawPaged(drawUpdating, (void *)&state);
     display.hibernate();
+}
+
+void displayTimeSync(bool gpsSync)
+{
+    if (gpsSync != prevGPSSync || firstTime)
+    {
+        display.drawPaged(drawTimeSync, (void *)&gpsSync);
+        display.hibernate();
+        prevGPSSync = gpsSync;
+        firstTime = false;
+    }
 }
 
 void displayStravaPolyline()
@@ -532,9 +546,9 @@ void drawLastTwelveMonths(const void *pv)
         // Serial.print("endday : ");
         // Serial.println(tmp.tm_yday);
         endMonDay = monthOffset[tmp.tm_mon + 1] - 1;
-        Serial.print(startMonDay);
-        Serial.print(" - ");
-        Serial.println(endMonDay);
+        // Serial.print(startMonDay);
+        // Serial.print(" - ");
+        // Serial.println(endMonDay);
         dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
         dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
         yearMon[i] = dist / 10000;
@@ -640,5 +654,21 @@ void drawUpdating(const void *pv)
         break;
     default:
         break;
+    }
+}
+
+void drawTimeSync(const void *pv)
+{
+    bool gpsSync = *(bool *)pv;
+    display.setTextSize(1);
+    if (gpsSync)
+    {
+        Serial.println("draw gps");
+        drawText(250, 70, "GPS");
+    }
+    else
+    {
+        Serial.println("draw ntp");
+        drawText(250, 70, "NTP");
     }
 }

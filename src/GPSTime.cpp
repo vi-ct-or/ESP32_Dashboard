@@ -15,7 +15,7 @@ bool setGPSTime()
 {
 
     time_t start = millis();
-    while (millis() - start < 1000)
+    while (millis() - start < 5000)
     {
         if (Serial2.available() > 0 && gps.encode(Serial2.read()))
         {
