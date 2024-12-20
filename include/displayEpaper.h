@@ -14,4 +14,5 @@ void displayStravaWeeks(struct tm *now);
 void displayStravaPolyline();
 void displayLastActivity();
 void displayUpdating(uint8_t state);
+void displayTimeSync(bool gpsSync);
 #endif

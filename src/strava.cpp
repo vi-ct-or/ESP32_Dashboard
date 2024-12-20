@@ -338,7 +338,6 @@ void populateDB(void)
     preferences.end();
     Serial.print("lastdaypopulate end : ");
     Serial.println(lastDayPopulate);
-    printDB(0);
 }
 
 void getYearActivities(time_t start, time_t end)
