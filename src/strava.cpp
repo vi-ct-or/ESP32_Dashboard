@@ -33,7 +33,7 @@ uint64_t lastActivitiesId[10];
 time_t lastDayPopulate;
 struct tm timeinfo;
 Preferences preferences;
-bool newActivity = true;
+RTC_DATA_ATTR bool newActivity = true;
 RTC_DATA_ATTR TsActivity lastActivity;
 
 void printDateTime(struct tm *dateStruct);
@@ -44,6 +44,14 @@ void timeStringToTm(const char *str, struct tm *tm);
 TeActivityType getActivityType(const char *str);
 void getYearActivities(time_t start, time_t end);
 void printDB(uint16_t nbDays);
+
+void initDB()
+{
+    preferences.begin("stravaDB", false);
+    lastDayPopulate = preferences.getLong("lastTimestamp", 0);
+    preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
+    preferences.end();
+}
 
 bool getAccessToken(char *ret_token)
 {
@@ -153,7 +161,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
             Serial.println("no error");
             JsonArray array = doc.as<JsonArray>();
             bool isFirst = true;
-            time_t prevLastActivityTimestamp = lastActivity.timestamp;
+            time_t prevLastActivityTimestamp = lastDayPopulate;
             for (JsonVariant v : array)
             {
                 if (v["trainer"].as<bool>() == true)
@@ -188,7 +196,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 }
 
                 newActivity = true;
-                int utcOffset = v["utc_offset"].as<int>();
+                // int utcOffset = v["utc_offset"].as<int>();
                 if (activityStartTime /* + utcOffset */ > lastDayPopulate)
                 {
                     lastDayPopulate = activityStartTime /*+ utcOffset*/;
@@ -280,23 +288,19 @@ void printDateTime(struct tm *dateStruct)
 
 void populateDB(void)
 {
-    preferences.begin("stravaDB", false);
 
-    lastDayPopulate = preferences.getLong("lastTimestamp", 0);
-    preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
-    preferences.end();
     Serial.print("LastDayPopulate at start : ");
     Serial.println(lastDayPopulate);
 
     // reset everything
     // lastDayPopulate = 0;
-    // lastDayPopulate = 1734377442;
-    // for (uint16_t i = 345; i < 360; i++)
+    // lastDayPopulate = 1734837250;
+    // for (uint16_t i = 356; i < 358; i++)
     // {
-    //     thisYear[i].climbRun = 0;
-    //     thisYear[i].distRun = 0;
-    //     thisYear[i].climbBike = 0;
-    //     thisYear[i].distBike = 0;
+    //     loopYear[i].climbRun = 0;
+    //     loopYear[i].distRun = 0;
+    //     loopYear[i].climbBike = 0;
+    //     loopYear[i].distBike = 0;
     // }
 
     struct tm tmpTm;
@@ -462,11 +466,16 @@ void newYearBegin()
 
 void newMonthBegin(struct tm tm)
 {
+    preferences.begin("stravaDB", false);
+    preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
 
     for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
     {
         memset(&loopYear[i], 0, sizeof(TsDistDay));
     }
+    preferences.clear();
+    preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+    preferences.end();
 }
 
 TsActivity *getStravaLastActivity()
