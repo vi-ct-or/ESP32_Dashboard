@@ -28,6 +28,8 @@ typedef struct sActivity
 #define DAYS_BY_YEAR 366
 extern bool newActivity;
 extern const uint16_t monthOffset[];
+
+void initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
 void populateDB(void);
 void newYearBegin();

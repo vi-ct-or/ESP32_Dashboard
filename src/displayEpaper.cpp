@@ -11,7 +11,11 @@
 #include "displayEpaper.h"
 
 #define SQUARE_SIZE 150
+#define DAY_IN_SEC 3600 * 24
+#define WEEK_IN_SEC 604800
+#define WEEK_NB 53
 GxEPD2_BW<GxEPD2_420_GDEY042T81, GxEPD2_420_GDEY042T81::HEIGHT> display(GxEPD2_420_GDEY042T81(/*CS=5*/ 5, /*DC=*/4, /*RES=*/19, /*BUSY=*/15)); // 400x300, SSD1683
+// SCL(SCK)=18,SDA(MOSI)=23
 
 int getMaxLat();
 int getMaxLng();
@@ -29,6 +33,8 @@ void secondsToHour(time_t timestamp, std::string *out);
 void printSTDString(std::string str);
 void drawUpdating(const void *pv);
 void drawTimeSync(const void *pv);
+bool isLeap(int year);
+void getYearAndWeek(tm TM, int &YYYY, int &WW);
 
 RTC_DATA_ATTR bool refresh = true;
 RTC_DATA_ATTR bool prevGPSSync = false;
@@ -453,7 +459,7 @@ void drawLastActivity(const void *pv)
     displStr += "\n";
     displStr += speed;
     display.setTextSize(2);
-    drawText(0, 260, displStr.c_str());
+    drawText(1, 260, displStr.c_str());
 }
 
 void secondsToHour(time_t timestamp, std::string *out)
@@ -605,26 +611,21 @@ void drawLastTwelveMonths(const void *pv)
             break;
         }
         display.print(monthLetter);
-        Serial.print(monthLetter);
-        Serial.print(" : ");
-        Serial.println(yearMon[i]);
+        // Serial.print(monthLetter);
+        // Serial.print(" : ");
+        // Serial.println(yearMon[i]);
         x += w + space;
     }
 
     display.drawLine(30, y - hMax - 1, 300, y - hMax - 1, GxEPD_BLACK);
     display.drawLine(30, y - hMax / 2, 300, y - hMax / 2, GxEPD_BLACK);
     display.drawLine(30, y, 300, y, GxEPD_BLACK);
-    display.setCursor(0, y - 3 - hMax);
+    display.setCursor(1, y - 3 - hMax);
     display.print(maxMonth);
-    display.setCursor(0, y - 3 - hMax / 2);
+    display.setCursor(1, y - 3 - hMax / 2);
     display.print(maxMonth / 2);
-    display.setCursor(0, y - 3);
+    display.setCursor(1, y - 3);
     display.print(0);
-}
-
-void drawWeeks(const void *pv)
-{
-    uint16_t weeks[52];
 }
 
 void drawUpdating(const void *pv)
@@ -670,5 +671,126 @@ void drawTimeSync(const void *pv)
     {
         Serial.println("draw ntp");
         drawText(250, 70, "NTP");
+    }
+}
+
+void drawWeeks(const void *pv)
+{
+    uint16_t weeks[WEEK_NB];
+    const struct tm *now = (const struct tm *)pv;
+    struct tm tmTmp = *now;
+    time_t timeTmp;
+    time_t nowTime = mktime(&tmTmp);
+
+    timeTmp = nowTime - (now->tm_wday + 6) % 7 * DAY_IN_SEC;
+    tmTmp = *localtime(&timeTmp);
+
+    // fill array
+    uint16_t startWeekDay, endWeekDay;
+    startWeekDay = monthOffset[tmTmp.tm_mon] + tmTmp.tm_mday - 1;
+    endWeekDay = monthOffset[now->tm_mon] + now->tm_mday - 1;
+    uint16_t maxWeek = 0;
+    uint32_t dist;
+    for (int8_t i = WEEK_NB - 1; i > -1; i--)
+    {
+        dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
+        dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
+        weeks[i] = dist / 10000;
+        if (weeks[i] > maxWeek)
+        {
+            maxWeek = weeks[i];
+        }
+        timeTmp -= DAY_IN_SEC;
+        tmTmp = *localtime(&timeTmp);
+        endWeekDay = monthOffset[tmTmp.tm_mon] + tmTmp.tm_mday - 1;
+        timeTmp += DAY_IN_SEC;
+        timeTmp -= WEEK_IN_SEC;
+        tmTmp = *localtime(&timeTmp);
+        startWeekDay = monthOffset[tmTmp.tm_mon] + tmTmp.tm_mday - 1;
+    }
+
+    // for (uint8_t i = 0; i < WEEK_NB; i++)
+    // {
+    //     Serial.print(i);
+    //     Serial.print(" : ");
+    //     Serial.println(weeks[i]);
+    // }
+
+    // draw array
+    int currentWeek, year;
+    uint16_t w = 3, h, space = 2, hMax = 68, y = 235, x = 300 - w - space;
+    display.setPartialWindow(0, y - hMax, 300, hMax + 12);
+    uint8_t weekNb;
+    timeTmp = nowTime;
+    display.setTextSize(1);
+    for (int8_t i = WEEK_NB - 1; i > 1; i--) // ignore first two weeks cause they wrong ?
+    {
+        display.drawRect(x, y, w, -(weeks[i] * hMax / maxWeek), GxEPD_BLACK);
+
+        tmTmp = *localtime(&timeTmp);
+        getYearAndWeek(tmTmp, year, currentWeek);
+        // display.setCursor(x, y + 2 + (i % 3) * 5);
+        if (currentWeek % 5 == 0 && x < 300 - 15)
+        {
+            Serial.print("current week print : ");
+            Serial.println(currentWeek);
+            display.setCursor(x, y + 2);
+            display.print(currentWeek);
+        }
+        timeTmp -= WEEK_IN_SEC;
+        x -= (w + space);
+    }
+
+    display.drawLine(30, y - hMax - 1, 300, y - hMax - 1, GxEPD_BLACK);
+    display.drawLine(30, y - hMax / 2, 300, y - hMax / 2, GxEPD_BLACK);
+    display.drawLine(30, y, 300, y, GxEPD_BLACK);
+    display.setCursor(0, y - 3 - hMax);
+    display.print(maxWeek);
+    display.setCursor(0, y - 3 - hMax / 2);
+    display.print(maxWeek / 2);
+    display.setCursor(0, y - 3);
+    display.print(0);
+}
+
+bool isLeap(int year)
+{
+    if (year % 4 == 0)
+    {
+        if (year % 100 == 0 && year % 400 != 0)
+            return false;
+        else
+            return true;
+    }
+    return false;
+}
+
+void getYearAndWeek(tm TM, int &YYYY, int &WW) // Reference: https://en.wikipedia.org/wiki/ISO_8601
+{
+    YYYY = TM.tm_year + 1900;
+    int day = TM.tm_yday;
+
+    int Monday = day - (TM.tm_wday + 6) % 7;                       // Monday this week: may be negative down to 1-6 = -5;
+    int MondayYear = 1 + (Monday + 6) % 7;                         // First Monday of the year
+    int Monday01 = (MondayYear > 4) ? MondayYear - 7 : MondayYear; // Monday of week 1: should lie between -2 and 4 inclusive
+    WW = 1 + (Monday - Monday01) / 7;                              // Nominal week ... but see below
+
+    // In ISO-8601 there is no week 0 ... it will be week 52 or 53 of the previous year
+    if (WW == 0)
+    {
+        YYYY--;
+        WW = 52;
+        if (MondayYear == 3 || MondayYear == 4 || (isLeap(YYYY) && MondayYear == 2))
+            WW = 53;
+    }
+
+    // Similar issues at the end of the calendar year
+    if (WW == 53)
+    {
+        int daysInYear = isLeap(YYYY) ? 366 : 365;
+        if (daysInYear - Monday < 3)
+        {
+            YYYY++;
+            WW = 1;
+        }
     }
 }

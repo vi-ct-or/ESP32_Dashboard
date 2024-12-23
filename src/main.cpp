@@ -66,7 +66,7 @@ void setup()
     tzset();
     Serial.println("Set By GPS");
     GPSSync = true;
-    }
+  }
   else
   {
 
@@ -80,12 +80,16 @@ void setup()
 
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
-    connectWifi(10000);
     // first boot
     Serial.println("wakeup after reset");
     Serial.println(wakeup_reason);
 
-    updateFW();
+    if (connectWifi(10000))
+    {
+      updateFW();
+    }
+
+    esp_task_wdt_reset();
     while (!getLocalTime(&timeinfo1))
       ;
     prevMinute = 255;
@@ -101,6 +105,7 @@ void setup()
   }
   displayTemplate();
   displayTimeSync(GPSSync);
+  esp_task_wdt_reset();
 }
 
 void loop()
@@ -149,17 +154,25 @@ void loop()
       }
     }
     prevHour = timeinfo1.tm_hour;
+    initDB();
     if (connectWifi(10000))
     {
       populateDB();
-      if (newActivity)
-      {
-        displayStravaAllYear();
-        displayStravaMonths(&timeinfo1);
-        displayLastActivity();
-        displayStravaPolyline();
-        newActivity = false;
-      }
+    }
+    if (newActivity)
+    {
+      displayStravaAllYear();
+      displayLastActivity();
+      displayStravaPolyline();
+      newActivity = false;
+    }
+    if (timeinfo1.tm_hour % 2 == 0)
+    {
+      displayStravaMonths(&timeinfo1);
+    }
+    else
+    {
+      displayStravaWeeks(&timeinfo1);
     }
     // prevMenu = UINT8_MAX; // to refresh current menu with new activity
   }
