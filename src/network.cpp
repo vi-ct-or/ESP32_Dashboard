@@ -31,6 +31,7 @@ bool connectWifi(int timeoutms)
             }
             if (index != -1)
             {
+                Serial.println(ssidArr[index]);
                 Serial.println("Connecting");
                 WiFi.begin(ssidArr[index], pswdArr[index]);
                 unsigned long start = millis();

@@ -2,6 +2,8 @@
 #include <Preferences.h>
 #include <esp_task_wdt.h>
 #include <nvs_flash.h>
+#include <sys/time.h>
+
 #include "esp_sntp.h"
 #include "otaUpdate.h"
 #include "strava.h"
@@ -30,6 +32,7 @@ const int buttonPin = 0;
 esp_sleep_wakeup_cause_t wakeup_reason;
 bool goToSleep = false;
 RTC_DATA_ATTR bool doSyncNtp = false;
+bool GPSSync = false;
 
 static void IRAM_ATTR buttonInterrupt(void);
 void syncNTP();
@@ -38,7 +41,6 @@ void cbSyncTime(struct timeval *tv);
 void setup()
 {
 
-  bool GPSSync = false;
   // nvs_flash_erase(); // erase the NVS partition and...
   // nvs_flash_init();  // initialize the NVS partition.
   // while (true)
@@ -60,23 +62,23 @@ void setup()
   initDisplay();
   initGpsTime();
 
-  if (setGPSTime())
-  {
-    setenv("TZ", "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00", 1);
-    tzset();
-    Serial.println("Set By GPS");
-    GPSSync = true;
-  }
-  else
-  {
+  // if (setGPSTime())
+  // {
+  //   setenv("TZ", TZ_INFO, 1);
+  //   tzset();
+  //   Serial.println("Set By GPS");
+  //   GPSSync = true;
+  // }
+  // else
+  // {
 
-    configTzTime(TZ_INFO, NTP_SERVER);
-    if (doSyncNtp && connectWifi(10000))
-    {
-      Serial.println(sntp_restart());
-    }
+  configTzTime(TZ_INFO, NTP_SERVER);
+  if (doSyncNtp && connectWifi(10000))
+  {
+    Serial.println(sntp_restart());
+    doSyncNtp = false;
   }
-  doSyncNtp = false;
+  // }
 
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
@@ -90,8 +92,8 @@ void setup()
     }
 
     esp_task_wdt_reset();
-    while (!getLocalTime(&timeinfo1))
-      ;
+    getLocalTime(&timeinfo1, 20000);
+
     prevMinute = 255;
     prevHour = 255;
     prevDay = 255;
@@ -111,70 +113,81 @@ void setup()
 void loop()
 {
   // update time
-  getLocalTime(&timeinfo1);
-  if (timeinfo1.tm_min != prevMinute)
+  if (GPSSync)
   {
-    Serial.println("update minute");
-    prevMinute = timeinfo1.tm_min;
-    displayTime(&timeinfo1);
-    Serial.print(timeinfo1.tm_hour);
-    Serial.print(":");
-    Serial.println(timeinfo1.tm_min);
-    if (timeinfo1.tm_min == 59 || timeinfo1.tm_min == 14 || timeinfo1.tm_min == 29 || timeinfo1.tm_min == 44)
+    // gettimeofday()
+    // localtime_r(&now, &timeinfo1);
+    getLocalTime(&timeinfo1);
+  }
+  else
+  {
+  }
+  if (getLocalTime(&timeinfo1))
+  {
+    if (timeinfo1.tm_min != prevMinute)
     {
-      doSyncNtp = true;
+      Serial.println("update minute");
+      prevMinute = timeinfo1.tm_min;
+      displayTime(&timeinfo1);
+      Serial.print(timeinfo1.tm_hour);
+      Serial.print(":");
+      Serial.println(timeinfo1.tm_min);
+      if (timeinfo1.tm_min == 59 || timeinfo1.tm_min == 14 || timeinfo1.tm_min == 29 || timeinfo1.tm_min == 44)
+      {
+        doSyncNtp = true;
+      }
+      goToSleep = true;
     }
-    goToSleep = true;
-  }
-  if (timeinfo1.tm_mday != prevDay)
-  {
-    Serial.println("update day");
-    prevDay = timeinfo1.tm_mday;
-    displayDate(&timeinfo1);
-  }
-  if (timeinfo1.tm_mon != prevMonth)
-  {
-    Serial.println("update month");
-    Serial.print("prevMonth");
-    Serial.println(prevMonth);
-    newMonthBegin(timeinfo1);
-    preferences2.begin("date", false);
-    prevMonth = timeinfo1.tm_mon;
-    preferences2.putUShort("prevMonth", prevMonth);
-    preferences2.end();
-  }
-  if (timeinfo1.tm_hour != prevHour)
-  {
-    Serial.println("update hour");
-    if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
+    if (timeinfo1.tm_mday != prevDay)
     {
+      Serial.println("update day");
+      prevDay = timeinfo1.tm_mday;
+      displayDate(&timeinfo1);
+    }
+    if (timeinfo1.tm_mon != prevMonth)
+    {
+      Serial.println("update month");
+      Serial.print("prevMonth");
+      Serial.println(prevMonth);
+      newMonthBegin(timeinfo1);
+      preferences2.begin("date", false);
+      prevMonth = timeinfo1.tm_mon;
+      preferences2.putUShort("prevMonth", prevMonth);
+      preferences2.end();
+    }
+    if (timeinfo1.tm_hour != prevHour)
+    {
+      Serial.println("update hour");
+      if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
+      {
+        if (connectWifi(10000))
+        {
+          updateFW();
+        }
+      }
+      prevHour = timeinfo1.tm_hour;
+      initDB();
       if (connectWifi(10000))
       {
-        updateFW();
+        populateDB();
       }
+      if (newActivity)
+      {
+        displayStravaAllYear();
+        displayLastActivity();
+        displayStravaPolyline();
+        newActivity = false;
+      }
+      if (timeinfo1.tm_hour % 2 == 0)
+      {
+        displayStravaMonths(&timeinfo1);
+      }
+      else
+      {
+        displayStravaWeeks(&timeinfo1);
+      }
+      // prevMenu = UINT8_MAX; // to refresh current menu with new activity
     }
-    prevHour = timeinfo1.tm_hour;
-    initDB();
-    if (connectWifi(10000))
-    {
-      populateDB();
-    }
-    if (newActivity)
-    {
-      displayStravaAllYear();
-      displayLastActivity();
-      displayStravaPolyline();
-      newActivity = false;
-    }
-    if (timeinfo1.tm_hour % 2 == 0)
-    {
-      displayStravaMonths(&timeinfo1);
-    }
-    else
-    {
-      displayStravaWeeks(&timeinfo1);
-    }
-    // prevMenu = UINT8_MAX; // to refresh current menu with new activity
   }
   if (goToSleep)
   {
