@@ -22,7 +22,7 @@ bool setGPSTime()
         {
             Serial.println("available");
 
-            if (gps.time.isValid() && gps.date.isValid())
+            if (gps.time.isValid() && gps.date.isValid() && gps.date.year() > 2023)
             {
                 struct tm tm;
                 time_t now;
