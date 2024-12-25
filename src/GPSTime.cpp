@@ -1,5 +1,6 @@
 #include <TinyGPSPlus.h>
 #include "GPSTime.h"
+#include <sys/time.h>
 
 #define RXD2 16
 #define TXD2 17
@@ -27,18 +28,18 @@ bool setGPSTime()
                 time_t now;
                 struct timeval tv;
 
-                tm.tm_sec = gps.time.second();
                 tm.tm_min = gps.time.minute();
                 tm.tm_hour = gps.time.hour();
                 tm.tm_mday = gps.date.day();
                 tm.tm_mon = gps.date.month() - 1;
                 tm.tm_year = gps.date.year() - 1900;
+                tm.tm_sec = gps.time.second();
 
                 now = mktime(&tm);
                 tv.tv_sec = now;
                 tv.tv_usec = 0;
-
-                settimeofday(&tv, NULL);
+                Serial.print("settimeofday : ");
+                Serial.println(settimeofday(&tv, NULL));
 
                 Serial.println("Time set");
                 return true;

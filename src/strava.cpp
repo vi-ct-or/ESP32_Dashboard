@@ -48,7 +48,7 @@ void printDB(uint16_t nbDays);
 void initDB()
 {
     preferences.begin("stravaDB", false);
-    lastDayPopulate = preferences.getLong("lastTimestamp", 0);
+    lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
     preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
     preferences.end();
 }
@@ -337,7 +337,7 @@ void populateDB(void)
     // save loopYear
     preferences.begin("stravaDB", false);
     preferences.clear();
-    preferences.putLong("lastTimestamp", lastDayPopulate);
+    preferences.putLong("lastDayPopulate", lastDayPopulate);
     preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
     preferences.end();
     Serial.print("lastdaypopulate end : ");
