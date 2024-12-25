@@ -62,23 +62,29 @@ void setup()
   initDisplay();
   initGpsTime();
 
-  // if (setGPSTime())
-  // {
-  //   setenv("TZ", TZ_INFO, 1);
-  //   tzset();
-  //   Serial.println("Set By GPS");
-  //   GPSSync = true;
-  // }
-  // else
-  // {
-
-  configTzTime(TZ_INFO, NTP_SERVER);
-  if (doSyncNtp && connectWifi(10000))
+  if (setGPSTime())
   {
-    Serial.println(sntp_restart());
-    doSyncNtp = false;
+    setenv("TZ", TZ_INFO, 1);
+    tzset();
+    Serial.println("Set By GPS");
+    GPSSync = true;
   }
-  // }
+  else
+  {
+
+    configTzTime(TZ_INFO, NTP_SERVER);
+    if (doSyncNtp && connectWifi(10000))
+    {
+      Serial.println(sntp_restart());
+      doSyncNtp = false;
+    }
+  }
+  while (!getLocalTime(&timeinfo1))
+  {
+    Serial.println("getLocaltime failed");
+  }
+
+  Serial.println("GetLocalTimeOK");
 
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
