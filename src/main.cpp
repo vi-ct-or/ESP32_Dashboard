@@ -71,7 +71,10 @@ void setup()
   }
   else
   {
-
+    if (!getLocalTime(&timeinfo1))
+    {
+      connectWifi(10000);
+    }
     configTzTime(TZ_INFO, NTP_SERVER);
     if (doSyncNtp && connectWifi(10000))
     {
@@ -81,6 +84,7 @@ void setup()
   }
   while (!getLocalTime(&timeinfo1))
   {
+    esp_task_wdt_reset();
     Serial.println("getLocaltime failed");
   }
 
@@ -98,7 +102,6 @@ void setup()
     }
 
     esp_task_wdt_reset();
-    getLocalTime(&timeinfo1, 20000);
 
     prevMinute = 255;
     prevHour = 255;
@@ -119,18 +122,9 @@ void setup()
 void loop()
 {
   // update time
-  if (GPSSync)
-  {
-    // gettimeofday()
-    // localtime_r(&now, &timeinfo1);
-    getLocalTime(&timeinfo1);
-  }
-  else
-  {
-  }
   if (getLocalTime(&timeinfo1))
   {
-    if (timeinfo1.tm_min != prevMinute)
+    if (timeinfo1.tm_min != prevMinute || isRefreshed)
     {
       Serial.println("update minute");
       prevMinute = timeinfo1.tm_min;
@@ -142,9 +136,13 @@ void loop()
       {
         doSyncNtp = true;
       }
+      if ((timeinfo1.tm_hour == 10 || timeinfo1.tm_hour == 20) && timeinfo1.tm_min == 59)
+      {
+        refresh = true; // refresh screen next time
+      }
       goToSleep = true;
     }
-    if (timeinfo1.tm_mday != prevDay)
+    if (timeinfo1.tm_mday != prevDay || isRefreshed)
     {
       Serial.println("update day");
       prevDay = timeinfo1.tm_mday;
@@ -161,7 +159,7 @@ void loop()
       preferences2.putUShort("prevMonth", prevMonth);
       preferences2.end();
     }
-    if (timeinfo1.tm_hour != prevHour)
+    if (timeinfo1.tm_hour != prevHour || isRefreshed)
     {
       Serial.println("update hour");
       if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
@@ -177,7 +175,7 @@ void loop()
       {
         populateDB();
       }
-      if (newActivity)
+      if (newActivity || isRefreshed)
       {
         displayStravaAllYear();
         displayLastActivity();
@@ -188,10 +186,11 @@ void loop()
       {
         displayStravaMonths(&timeinfo1);
       }
-      else
+      else if (timeinfo1.tm_hour % 2 == 1)
       {
         displayStravaWeeks(&timeinfo1);
       }
+      isRefreshed = false;
       // prevMenu = UINT8_MAX; // to refresh current menu with new activity
     }
   }
