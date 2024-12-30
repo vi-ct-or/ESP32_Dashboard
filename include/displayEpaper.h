@@ -3,6 +3,7 @@
 #define DISPLAY_H
 
 extern bool refresh;
+extern bool isRefreshed;
 
 void initDisplay(void);
 void displayTemplate();

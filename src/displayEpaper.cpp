@@ -37,6 +37,7 @@ bool isLeap(int year);
 void getYearAndWeek(tm TM, int &YYYY, int &WW);
 
 RTC_DATA_ATTR bool refresh = true;
+RTC_DATA_ATTR bool isRefreshed = false;
 RTC_DATA_ATTR bool prevGPSSync = false;
 RTC_DATA_ATTR bool firstTime = true;
 
@@ -58,6 +59,7 @@ void displayTemplate()
     {
         display.drawPaged(drawFull, 0);
         refresh = false;
+        isRefreshed = true;
     }
     display.hibernate();
 }
