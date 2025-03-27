@@ -35,6 +35,7 @@ void drawUpdating(const void *pv);
 void drawTimeSync(const void *pv);
 bool isLeap(int year);
 void getYearAndWeek(tm TM, int &YYYY, int &WW);
+std::string speedToPace(double speedKmH);
 
 RTC_DATA_ATTR bool refresh = true;
 RTC_DATA_ATTR bool isRefreshed = false;
@@ -410,7 +411,8 @@ void drawStravaPolyline(const void *pv)
 void drawLastActivity(const void *pv)
 {
     TsActivity *lastActivity = getStravaLastActivity();
-    std::string displStr, dist, name, time, duration, deniv, speed;
+    std::string displStr, dist, name, time, duration, deniv, speedOrPace;
+    float speed = 0.0;
     name = lastActivity->name; // name
     if (name.size() > 10)
     {
@@ -445,11 +447,21 @@ void drawLastActivity(const void *pv)
     deniv += "m d+";
     deniv.insert(0, 10 - deniv.size(), ' ');
 
-    speed = std::to_string(((float)(((float)lastActivity->dist / 100.0)) / (float)lastActivity->time * 3600.0));
-    dotIdx = speed.find('.');
-    speed.resize(dotIdx + 3);
-    speed += "km/h";
-    speed.insert(0, 10 - speed.size(), ' ');
+    speed = ((float)(((float)lastActivity->dist / 100.0)) / (float)lastActivity->time * 3600.0);
+
+    if (lastActivity->type == ACTIVITY_TYPE_RUN)
+    {
+        speedOrPace = speedToPace(speed);
+        speedOrPace += "min/km";
+    }
+    else
+    {
+        speedOrPace = std::to_string(speed);
+        dotIdx = speedOrPace.find('.');
+        speedOrPace.resize(dotIdx + 3);
+        speedOrPace += "km/h";
+    }
+    speedOrPace.insert(0, 10 - speedOrPace.size(), ' ');
 
     displStr = name;
     displStr += "\n\n";
@@ -459,7 +471,7 @@ void drawLastActivity(const void *pv)
     displStr += "\n";
     displStr += deniv;
     displStr += "\n";
-    displStr += speed;
+    displStr += speedOrPace;
     display.setTextSize(2);
     drawText(1, 260, displStr.c_str());
 }
@@ -531,36 +543,20 @@ void drawLastTwelveMonths(const void *pv)
         // Serial.print("start : ");
         // Serial.println(tmp.tm_yday);
         startMonDay = monthOffset[tmp.tm_mon];
-        if (i == 0 || i == 2 || i == 4 || i == 6 || i == 7 || i == 9 || i == 11)
-        {
-            tmp.tm_mday = 31;
-        }
-        else if (i == 3 || i == 5 || i == 8 || i == 10)
-        {
-            tmp.tm_mday = 30;
-        }
-        else
-        {                                                                          // fevrier
-            if ((tmp.tm_year + 1900) % 4 == 0 and (tmp.tm_year + 1900) % 100 != 0) // bissextile
-            {
-                tmp.tm_mday = 29;
-            }
-            else
-            {
-                tmp.tm_mday = 28;
-            }
-        }
-        mktime(&tmp);
-        // Serial.print("endday : ");
-        // Serial.println(tmp.tm_yday);
         endMonDay = monthOffset[tmp.tm_mon + 1] - 1;
-        // Serial.print(startMonDay);
-        // Serial.print(" - ");
-        // Serial.println(endMonDay);
+        Serial.println(i);
+        Serial.print(startMonDay);
+        Serial.print(" - ");
+        Serial.println(endMonDay);
+        Serial.print(" : velo : ");
         dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
+        Serial.print(dist / 10000);
+        Serial.print(" ; run : ");
+        Serial.print(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay) / 10000);
         dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
         yearMon[i] = dist / 10000;
-        Serial.println(dist);
+        Serial.print(" ; total : ");
+        Serial.println(dist / 10000);
         if (dist / 10000 > maxMonth)
         {
             maxMonth = dist / 10000;
@@ -613,9 +609,6 @@ void drawLastTwelveMonths(const void *pv)
             break;
         }
         display.print(monthLetter);
-        // Serial.print(monthLetter);
-        // Serial.print(" : ");
-        // Serial.println(yearMon[i]);
         x += w + space;
     }
 
@@ -695,9 +688,26 @@ void drawWeeks(const void *pv)
     uint32_t dist;
     for (int8_t i = WEEK_NB - 1; i > -1; i--)
     {
-        dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
-        dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
+        if (startWeekDay > endWeekDay)
+        {
+            dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startWeekDay, 365);
+            dist += getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 0, endWeekDay);
+
+            dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startWeekDay, 365);
+            dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 0, endWeekDay);
+        }
+        else
+        {
+            dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
+            dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
+        }
         weeks[i] = dist / 10000;
+        Serial.print(startWeekDay);
+        Serial.print(" - ");
+        Serial.print(endWeekDay);
+        Serial.print("  ");
+        Serial.println(dist / 10000);
+
         if (weeks[i] > maxWeek)
         {
             maxWeek = weeks[i];
@@ -710,13 +720,6 @@ void drawWeeks(const void *pv)
         tmTmp = *localtime(&timeTmp);
         startWeekDay = monthOffset[tmTmp.tm_mon] + tmTmp.tm_mday - 1;
     }
-
-    // for (uint8_t i = 0; i < WEEK_NB; i++)
-    // {
-    //     Serial.print(i);
-    //     Serial.print(" : ");
-    //     Serial.println(weeks[i]);
-    // }
 
     // draw array
     int currentWeek, year;
@@ -795,4 +798,30 @@ void getYearAndWeek(tm TM, int &YYYY, int &WW) // Reference: https://en.wikipedi
             WW = 1;
         }
     }
+}
+
+std::string speedToPace(double speedKmH)
+{
+    std::string out;
+    if (speedKmH <= 0)
+    {
+        return "Invalid speed"; // Error message for invalid speed
+    }
+
+    // Calculate pace in minutes per kilometer
+    double paceInMinutes = 60.0 / speedKmH;
+
+    // Extract minutes and seconds from the pace
+    int minutes = static_cast<int>(paceInMinutes);
+    int seconds = static_cast<int>((paceInMinutes - minutes) * 60); // Convert fractional part to seconds
+
+    // Create the formatted string "x:xx"
+    out = std::to_string(minutes) + ":";
+    if (seconds < 10)
+    {
+        out += "0";
+    }
+    out += std::to_string(seconds);
+
+    return out;
 }
