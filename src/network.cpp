@@ -1,11 +1,28 @@
 #include "credentials.h"
 #include "network.h"
 #include "WiFi.h"
+#include <Preferences.h>
+
+#define NB_NETWORK 1
+
+Preferences networkPreferences;
+RTC_DATA_ATTR char ssid1[32] = {0};
+RTC_DATA_ATTR char password1[32] = {0};
+char *ssidArr[1] = {ssid1};
+char *pswdArr[1] = {password1};
 
 void initWifi()
 {
     WiFi.mode(WIFI_STA);
+    if (ssid1[0] == 0 && password1[0] == 0)
+    {
+        networkPreferences.begin("configNetwork");
+        networkPreferences.getString("ssid", ssid1, 32);
+        networkPreferences.getString("pswd", password1, 32);
+        networkPreferences.end();
+    }
 }
+
 bool connectWifi(int timeoutms)
 {
     bool connected = false;
@@ -22,7 +39,7 @@ bool connectWifi(int timeoutms)
         {
             for (int j = 0; j < n; ++j)
             {
-                if (strcmp(WiFi.SSID(j).c_str(), ssidArr[i]) == 0)
+                if (WiFi.SSID(j) == ssidArr[i])
                 {
                     Serial.println("Network found");
                     index = i;

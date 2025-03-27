@@ -16,4 +16,7 @@ void displayStravaPolyline();
 void displayLastActivity();
 void displayUpdating(uint8_t state);
 void displayTimeSync(bool gpsSync);
+void displayQrAP();
+void displayQrIP();
+void displayQrUrl();
 #endif

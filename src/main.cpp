@@ -10,6 +10,7 @@
 #include "displayEpaper.h"
 #include "network.h"
 #include "GPSTime.h"
+#include "webServer.h"
 
 #define NB_MENU 5
 #define uS_TO_S_FACTOR 1000000ULL
@@ -47,6 +48,7 @@ void setup()
   //   ;
   Serial.begin(9600);
   Serial.println("START");
+  initDisplay();
 
   esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
@@ -57,9 +59,40 @@ void setup()
 
   wakeup_reason = esp_sleep_get_wakeup_cause();
   // attachInterrupt(buttonPin, buttonInterrupt, FALLING);
+  if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
+  {
+    if (ssid1[0] == 0)
+    {
+      // wifi to setup yet => start local server for config
+      while (!loopWebServer())
+        ;
+      Serial.println("back to main after setup");
+    }
+
+    // boot
+    Serial.println("wakeup after reset");
+    Serial.println(wakeup_reason);
+
+    if (connectWifi(10000))
+    {
+      updateFW();
+    }
+
+    esp_task_wdt_reset();
+
+    prevMinute = 255;
+    prevHour = 255;
+    prevDay = 255;
+    preferences2.begin("date", false);
+    prevMonth = preferences2.getUShort("prevMonth", timeinfo1.tm_mon);
+    preferences2.end();
+  }
+  else
+  {
+    Serial.println("wakeup after deepsleep timer");
+  }
 
   initWifi();
-  initDisplay();
   initGpsTime();
 
   if (setGPSTime())
@@ -90,30 +123,6 @@ void setup()
 
   Serial.println("GetLocalTimeOK");
 
-  if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
-  {
-    // first boot
-    Serial.println("wakeup after reset");
-    Serial.println(wakeup_reason);
-
-    if (connectWifi(10000))
-    {
-      updateFW();
-    }
-
-    esp_task_wdt_reset();
-
-    prevMinute = 255;
-    prevHour = 255;
-    prevDay = 255;
-    preferences2.begin("date", false);
-    prevMonth = preferences2.getUShort("prevMonth", timeinfo1.tm_mon);
-    preferences2.end();
-  }
-  else
-  {
-    Serial.println("wakeup after deepsleep timer");
-  }
   displayTemplate();
   displayTimeSync(GPSSync);
   esp_task_wdt_reset();

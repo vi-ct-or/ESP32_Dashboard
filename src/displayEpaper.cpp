@@ -25,6 +25,9 @@ void drawDateStr(const void *pv);
 void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
 void drawStravaPolyline(const void *pv);
+void drawQrAP(const void *pv);
+void drawQrIP(const void *pv);
+void drawQrUrl(const void *pv);
 void drawFull(const void *pv);
 void drawLastTwelveMonths(const void *pv);
 void drawWeeks(const void *pv);
@@ -123,6 +126,23 @@ void displayTimeSync(bool gpsSync)
 void displayStravaPolyline()
 {
     display.drawPaged(drawStravaPolyline, 0);
+    display.hibernate();
+}
+
+void displayQrAP()
+{
+    display.drawPaged(drawQrAP, 0);
+    display.hibernate();
+}
+
+void displayQrIP()
+{
+    display.drawPaged(drawQrIP, 0);
+    display.hibernate();
+}
+void displayQrUrl()
+{
+    display.drawPaged(drawQrUrl, 0);
     display.hibernate();
 }
 
@@ -293,10 +313,10 @@ void drawDateStr(const void *pv)
     }
 
     nb = std::to_string(now->tm_mday);
-    if (now->tm_mday < 10)
-    {
-        nb.insert(0, 1, '0');
-    }
+    // if (now->tm_mday < 10)
+    // {
+    //     nb.insert(0, 1, '0');
+    // }
     nb.insert(0, (maxLen - 2) / 2, ' ');
     nb.insert(nb.size(), (maxLen - 2) / 2, ' ');
 
@@ -304,7 +324,7 @@ void drawDateStr(const void *pv)
     dateStr += "\n";
     dateStr += nb;
     dateStr += "\n";
-    dateStr += month;
+    dateStr += month + "\n\n" + std::to_string(1900 + now->tm_year) + " :";
     drawText(1, 1, dateStr.c_str());
 }
 
@@ -361,12 +381,9 @@ void drawYearStr(const void *pv)
 void drawFull(const void *pv)
 {
     display.setFullWindow();
-    display.setCursor(1, 70);
-    display.setTextSize(2);
-    display.print("Cette annee :\n");
     display.setTextSize(1);
     display.setCursor(55, 90);
-    display.print("Distance       Temps       Denivele");
+    display.print("    Distance       Temps       Denivele");
     display.drawBitmap(0, 100, bicycleBitMap, 42, 28, GxEPD_BLACK);
     display.drawBitmap(0, 100 + 30, runningShoeBitmap, 42, 28, GxEPD_BLACK);
 }
@@ -462,6 +479,37 @@ void drawLastActivity(const void *pv)
     displStr += speed;
     display.setTextSize(2);
     drawText(1, 260, displStr.c_str());
+}
+
+void drawQrAP(const void *pv)
+{
+    display.setPartialWindow(1, 1, 300, 110);
+    display.setTextSize(2);
+    display.setCursor(1, 1);
+    display.print("Flash this QR\n code to connect\n to the dashboard");
+    display.drawBitmap(150, 1, qr_AP, 100, 100, GxEPD_BLACK);
+}
+
+void drawQrIP(const void *pv)
+{
+    display.setPartialWindow(1, 160, 300, 110);
+    display.setTextSize(2);
+    display.setCursor(1, 160);
+    display.print("Connected to the dasboard");
+    display.setCursor(1, 180);
+    display.print("Now flash this QR\n code to access settings");
+    display.drawBitmap(150, 160, qrCodeIPAddr, 100, 100, GxEPD_BLACK);
+}
+
+void drawQrUrl(const void *pv)
+{
+    display.setPartialWindow(1, 280, 300, 110);
+    display.setTextSize(2);
+    display.setCursor(1, 280);
+    display.print("Dashboard connected to WiFi");
+    display.setCursor(1, 300);
+    display.print("Reconnect to your WiFi\n and flash this QR\n to finish settings");
+    display.drawBitmap(150, 280, qr_Url, 100, 100, GxEPD_BLACK);
 }
 
 void secondsToHour(time_t timestamp, std::string *out)

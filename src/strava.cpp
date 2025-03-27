@@ -35,6 +35,7 @@ struct tm timeinfo;
 Preferences preferences;
 RTC_DATA_ATTR bool newActivity = true;
 RTC_DATA_ATTR TsActivity lastActivity;
+RTC_DATA_ATTR char apiRefreshToken[40] = {0};
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
@@ -50,6 +51,13 @@ void initDB()
     preferences.begin("stravaDB", false);
     lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
     preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
+    preferences.end();
+
+    preferences.begin("stravaAuth");
+    if (apiRefreshToken[0] == 0)
+    {
+        preferences.getString("refreshToken", apiRefreshToken, 40);
+    }
     preferences.end();
 }
 
@@ -73,7 +81,12 @@ bool getAccessToken(char *ret_token)
     }
     else
     {
-
+        String getTokenUrl = "https://www.strava.com/oauth/token?grant_type=refresh_token&client_id="; //"51666&client_secret=bea36fb9fdb9ca3466f93c4d6dd4e77fbad770d3&refresh_token=e72d4dfa14e9c2a5c7ced70b3ee962e992f1045e";
+        getTokenUrl += clientId;
+        getTokenUrl += "&client_secret=";
+        getTokenUrl += clientSecret;
+        getTokenUrl += "&refresh_token=";
+        getTokenUrl += apiRefreshToken;
         HTTPClient http;
         http.begin(getTokenUrl);
 
@@ -162,6 +175,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
             JsonArray array = doc.as<JsonArray>();
             bool isFirst = true;
             time_t prevLastActivityTimestamp = lastDayPopulate;
+            TsActivity prevLastActivity = lastActivity;
             for (JsonVariant v : array)
             {
                 if (v["trainer"].as<bool>() == true)
