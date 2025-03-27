@@ -40,12 +40,13 @@ void cbSyncTime(struct timeval *tv);
 
 void setup()
 {
+  Serial.begin(9600);
 
   // nvs_flash_erase(); // erase the NVS partition and...
   // nvs_flash_init();  // initialize the NVS partition.
+  // Serial.println("nvs erased");
   // while (true)
   //   ;
-  Serial.begin(9600);
   Serial.println("START");
 
   esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
@@ -153,7 +154,7 @@ void loop()
       Serial.println("update month");
       Serial.print("prevMonth");
       Serial.println(prevMonth);
-      newMonthBegin(timeinfo1);
+      newMonthBegin(prevMonth, timeinfo1);
       preferences2.begin("date", false);
       prevMonth = timeinfo1.tm_mon;
       preferences2.putUShort("prevMonth", prevMonth);

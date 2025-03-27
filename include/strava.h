@@ -33,7 +33,7 @@ void initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
 void populateDB(void);
 void newYearBegin();
-void newMonthBegin(struct tm tm);
+void newMonthBegin(uint8_t prevMonth, struct tm tm);
 
 TsActivity *getStravaLastActivity();
 

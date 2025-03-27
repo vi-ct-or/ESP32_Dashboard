@@ -342,6 +342,7 @@ void populateDB(void)
     preferences.end();
     Serial.print("lastdaypopulate end : ");
     Serial.println(lastDayPopulate);
+    printDB(0);
 }
 
 void getYearActivities(time_t start, time_t end)
@@ -378,14 +379,14 @@ void getYearActivities(time_t start, time_t end)
 void printDB(uint16_t nbDays)
 {
     Serial.println("j -> run  ; bike ");
-    for (uint16_t i = monthOffset[11]; i < monthOffset[12]; i++)
+    for (uint16_t i = monthOffset[1]; i < monthOffset[2]; i++)
     {
         Serial.print(i);
         Serial.print(" -> ");
         Serial.print("loop Year : Run ");
-        Serial.print(loopYear[i].distRun);
+        Serial.print(loopYear[i].distRun / 10000);
         Serial.print(" Bike ");
-        Serial.print(loopYear[i].distBike);
+        Serial.print(loopYear[i].distBike / 10000);
         Serial.println(" ; ");
     }
 }
@@ -464,18 +465,23 @@ void newYearBegin()
     // memset(thisYear, 0, sizeof(thisYear));
 }
 
-void newMonthBegin(struct tm tm)
+void newMonthBegin(uint8_t prevMonth, struct tm tm)
 {
     preferences.begin("stravaDB", false);
     preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
+    lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
+
+    // for (uint8_t j = prevMonth; j < )
 
     for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
     {
         memset(&loopYear[i], 0, sizeof(TsDistDay));
     }
     preferences.clear();
+    preferences.putLong("lastDayPopulate", lastDayPopulate);
     preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
     preferences.end();
+    printDB(0);
 }
 
 TsActivity *getStravaLastActivity()
