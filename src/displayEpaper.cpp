@@ -3,6 +3,7 @@
 #include <GxEPD2_BW.h>
 #include "time.h"
 #include <string>
+#include <sstream>
 #include <list>
 #include "strava.h"
 #include "polyline.h"
@@ -24,6 +25,7 @@ int getMinLng();
 void drawDateStr(const void *pv);
 void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
+void drawYearTitle(const void *pv);
 void drawStravaPolyline(const void *pv);
 void drawFull(const void *pv);
 void drawLastTwelveMonths(const void *pv);
@@ -36,6 +38,7 @@ void drawTimeSync(const void *pv);
 bool isLeap(int year);
 void getYearAndWeek(tm TM, int &YYYY, int &WW);
 std::string speedToPace(double speedKmH);
+std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine);
 
 RTC_DATA_ATTR bool refresh = true;
 RTC_DATA_ATTR bool isRefreshed = false;
@@ -76,8 +79,9 @@ void displayDate(struct tm *now)
     display.hibernate();
 }
 
-void displayStravaAllYear()
+void displayStravaAllYear(struct tm *now)
 {
+    display.drawPaged(drawYearTitle, (const void *)now);
     display.drawPaged(drawYearStr, 0);
     display.hibernate();
 }
@@ -359,15 +363,21 @@ void drawYearStr(const void *pv)
     display.print(yearStravaRun.c_str());
 }
 
+void drawYearTitle(const void *pv)
+{
+    const struct tm *now = (const struct tm *)pv;
+    display.setPartialWindow(0, 60, 100, 23);
+    display.setCursor(10, 60);
+    display.setTextSize(3);
+    display.print(std::to_string(now->tm_year + 1900).c_str());
+}
+
 void drawFull(const void *pv)
 {
     display.setFullWindow();
-    display.setCursor(1, 70);
-    display.setTextSize(2);
-    display.print("Cette annee :\n");
     display.setTextSize(1);
     display.setCursor(55, 90);
-    display.print("Distance       Temps       Denivele");
+    display.print("   Distance      Temps       Denivele");
     display.drawBitmap(0, 100, bicycleBitMap, 42, 28, GxEPD_BLACK);
     display.drawBitmap(0, 100 + 30, runningShoeBitmap, 42, 28, GxEPD_BLACK);
 }
@@ -376,6 +386,13 @@ void drawStravaPolyline(const void *pv)
 {
     display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
     TsActivity *lastAct = getStravaLastActivity();
+
+    if (lastAct == NULL || lastAct->isFilled == false)
+    {
+        Serial.println("lastAct NULL");
+        return;
+    }
+    Serial.println("lastAct not NULL");
     if (!lastAct->polyline.empty())
     {
         decode(lastAct->polyline.c_str(), lastAct->polyline.size());
@@ -411,57 +428,75 @@ void drawStravaPolyline(const void *pv)
 void drawLastActivity(const void *pv)
 {
     TsActivity *lastActivity = getStravaLastActivity();
+    if (lastActivity == NULL || lastActivity->isFilled == false)
+    {
+        Serial.println("lastActivity NULL");
+        return;
+    }
+    Serial.println("lastlastActivityAct not NULL");
     std::string displStr, dist, name, time, duration, deniv, speedOrPace;
+    uint8_t lineNbTitle = 1;
+    uint8_t heightLetter2 = 16;
     float speed = 0.0;
-    name = lastActivity->name; // name
-    if (name.size() > 10)
-    {
-        name.insert(10, 1, '\n');
 
-        if (name[11] == ' ')
-        {
-            name.erase(11, 1);
-        }
-    }
-    if (name.size() > 20)
-    {
-        name.insert(20, 1, '\n');
+    name = addNewLines(lastActivity->name, 11, 3, &lineNbTitle);
+    // name = lastActivity->name; // name
+    //  if (name.size() > 10)
+    //  {
+    //      name.insert(10, 1, '\n');
+    //      lineNbTitle = 2;
+    //      if (name[11] == ' ')
+    //      {
+    //          name.erase(11, 1);
+    //      }
+    //  }
+    //  if (name.size() > 20)
+    //  {
+    //      name.insert(20, 1, '\n');
+    //      lineNbTitle = 3;
+    //      if (name[21] == ' ')
+    //      {
+    //          name.erase(21, 1);
+    //      }
+    //  }
+    //  if (name.size() > 30)
+    //  {
+    //      name.resize(30);
+    //  }
 
-        if (name[21] == ' ')
-        {
-            name.erase(21, 1);
-        }
-    }
-    if (name.size() > 30)
-    {
-        name.resize(30);
-    }
     dist = std::to_string((float)lastActivity->dist / 100.0); // dist
     uint8_t dotIdx = dist.find('.');
     dist.resize(dotIdx + 3);
-    dist += "km";
-    dist.insert(0, 10 - dist.size(), ' ');
+    // dist += "km";
+    dist.insert(0, 8 - dist.size(), ' ');
     secondsToHour(lastActivity->time, &duration); // duration
-    duration.insert(0, 10 - duration.size(), ' ');
+    duration.insert(0, 8 - duration.size(), ' ');
     deniv = std::to_string(lastActivity->deniv); // deniv
-    deniv += "m d+";
-    deniv.insert(0, 10 - deniv.size(), ' ');
+    // deniv += "m d+";
+    deniv.insert(0, 8 - deniv.size(), ' ');
 
     speed = ((float)(((float)lastActivity->dist / 100.0)) / (float)lastActivity->time * 3600.0);
 
+    display.setPartialWindow(1, 259, 149, 140);
+    display.setTextSize(1);
     if (lastActivity->type == ACTIVITY_TYPE_RUN)
     {
         speedOrPace = speedToPace(speed);
-        speedOrPace += "min/km";
+        // speedOrPace += "min/km";
+        display.setCursor(86, 267 + (lineNbTitle + 4) * heightLetter2);
+        display.print("min/km");
+        speedOrPace.insert(0, 7 - speedOrPace.size(), ' ');
     }
     else
     {
         speedOrPace = std::to_string(speed);
         dotIdx = speedOrPace.find('.');
         speedOrPace.resize(dotIdx + 3);
-        speedOrPace += "km/h";
+        // speedOrPace += "km/h";
+        display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2);
+        display.print("km/h");
+        speedOrPace.insert(0, 8 - speedOrPace.size(), ' ');
     }
-    speedOrPace.insert(0, 10 - speedOrPace.size(), ' ');
 
     displStr = name;
     displStr += "\n\n";
@@ -472,8 +507,33 @@ void drawLastActivity(const void *pv)
     displStr += deniv;
     displStr += "\n";
     displStr += speedOrPace;
+
+    display.setCursor(1, 260);
     display.setTextSize(2);
-    drawText(1, 260, displStr.c_str());
+    display.print(displStr.c_str());
+    // for (uint16_t i = 259; i < 400; i = i + heightLetter2)
+    // {
+    //     display.drawLine(0, i, 140, i, GxEPD_BLACK);
+    // }
+
+    display.setTextSize(1);
+    display.setCursor(98, 267 + (lineNbTitle + 1) * heightLetter2);
+    display.print("km");
+    display.setCursor(98, 267 + (lineNbTitle + 3) * heightLetter2);
+    display.print("m d+");
+
+    display.setCursor(83, 267);
+    // display.print("test");
+
+    if (lastActivity->kudos > 0)
+    {
+        display.drawBitmap(1, 400 - 18, myKudosBitmap, 17, 17, GxEPD_BLACK);
+        display.setTextSize(1);
+        display.setCursor(22, 400 - 10);
+        display.print(lastActivity->kudos);
+    }
+
+    // drawText(1, 260, displStr.c_str());
 }
 
 void secondsToHour(time_t timestamp, std::string *out)
@@ -544,19 +604,19 @@ void drawLastTwelveMonths(const void *pv)
         // Serial.println(tmp.tm_yday);
         startMonDay = monthOffset[tmp.tm_mon];
         endMonDay = monthOffset[tmp.tm_mon + 1] - 1;
-        Serial.println(i);
-        Serial.print(startMonDay);
-        Serial.print(" - ");
-        Serial.println(endMonDay);
-        Serial.print(" : velo : ");
+        // Serial.println(i);
+        // Serial.print(startMonDay);
+        // Serial.print(" - ");
+        // Serial.println(endMonDay);
+        // Serial.print(" : velo : ");
         dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
-        Serial.print(dist / 10000);
-        Serial.print(" ; run : ");
-        Serial.print(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay) / 10000);
+        // Serial.print(dist / 10000);
+        // Serial.print(" ; run : ");
+        // Serial.print(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay) / 10000);
         dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startMonDay, endMonDay);
         yearMon[i] = dist / 10000;
-        Serial.print(" ; total : ");
-        Serial.println(dist / 10000);
+        // Serial.print(" ; total : ");
+        // Serial.println(dist / 10000);
         if (dist / 10000 > maxMonth)
         {
             maxMonth = dist / 10000;
@@ -672,6 +732,7 @@ void drawTimeSync(const void *pv)
 void drawWeeks(const void *pv)
 {
     uint16_t weeks[WEEK_NB];
+    uint8_t weeksToHide[5] = {UINT8_MAX, UINT8_MAX, UINT8_MAX, UINT8_MAX, UINT8_MAX};
     const struct tm *now = (const struct tm *)pv;
     struct tm tmTmp = *now;
     time_t timeTmp;
@@ -688,6 +749,20 @@ void drawWeeks(const void *pv)
     uint32_t dist;
     for (int8_t i = WEEK_NB - 1; i > -1; i--)
     {
+        if (tmTmp.tm_mon == now->tm_mon && tmTmp.tm_year == now->tm_year - 1)
+        {
+            for (uint8_t j = 0; j < 5; j++)
+            {
+                if (weeksToHide[j] == UINT8_MAX)
+                {
+                    weeksToHide[j] = i;
+                    Serial.print("week to hide : ");
+                    Serial.println(i);
+                    break;
+                }
+            }
+        }
+
         if (startWeekDay > endWeekDay)
         {
             dist = getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, startWeekDay, 365);
@@ -702,11 +777,11 @@ void drawWeeks(const void *pv)
             dist += getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, startWeekDay, endWeekDay);
         }
         weeks[i] = dist / 10000;
-        Serial.print(startWeekDay);
-        Serial.print(" - ");
-        Serial.print(endWeekDay);
-        Serial.print("  ");
-        Serial.println(dist / 10000);
+        // Serial.print(startWeekDay);
+        // Serial.print(" - ");
+        // Serial.print(endWeekDay);
+        // Serial.print("  ");
+        // Serial.println(dist / 10000);
 
         if (weeks[i] > maxWeek)
         {
@@ -715,6 +790,7 @@ void drawWeeks(const void *pv)
         timeTmp -= DAY_IN_SEC;
         tmTmp = *localtime(&timeTmp);
         endWeekDay = monthOffset[tmTmp.tm_mon] + tmTmp.tm_mday - 1;
+
         timeTmp += DAY_IN_SEC;
         timeTmp -= WEEK_IN_SEC;
         tmTmp = *localtime(&timeTmp);
@@ -728,18 +804,39 @@ void drawWeeks(const void *pv)
     uint8_t weekNb;
     timeTmp = nowTime;
     display.setTextSize(1);
-    for (int8_t i = WEEK_NB - 1; i > 1; i--) // ignore first two weeks cause they wrong ?
+    for (int8_t i = WEEK_NB - 1; i > -1; i--)
     {
+        bool skipThisWeek = false;
+        for (uint8_t j = 0; j < 5; j++)
+        {
+            if (weeksToHide[j] == i)
+            {
+                skipThisWeek = true;
+                break;
+            }
+        }
+        if (skipThisWeek)
+        {
+            continue;
+        }
         display.drawRect(x, y, w, -(weeks[i] * hMax / maxWeek), GxEPD_BLACK);
 
         tmTmp = *localtime(&timeTmp);
         getYearAndWeek(tmTmp, year, currentWeek);
         // display.setCursor(x, y + 2 + (i % 3) * 5);
-        if (currentWeek % 5 == 0 && x < 300 - 15)
+        if ((currentWeek % 5 == 0 || currentWeek == 1) && x < 300 - 15)
         {
             Serial.print("current week print : ");
             Serial.println(currentWeek);
-            display.setCursor(x, y + 2);
+            display.drawLine(x + w / 2, y, x + w / 2, y - (weeks[i] * hMax / maxWeek), GxEPD_BLACK);
+            if (currentWeek < 10)
+            {
+                display.setCursor(x, y + 2);
+            }
+            else
+            {
+                display.setCursor(x - 4, y + 2);
+            }
             display.print(currentWeek);
         }
         timeTmp -= WEEK_IN_SEC;
@@ -824,4 +921,37 @@ std::string speedToPace(double speedKmH)
     out += std::to_string(seconds);
 
     return out;
+}
+
+std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine)
+{
+    std::istringstream stream(input);
+    std::ostringstream result;
+    std::string word;
+    int currentWidth = 0;
+    int currentNbLine = 1;
+
+    while (stream >> word)
+    {
+        if (currentWidth + word.length() > maxWidth)
+        {
+            currentNbLine++;
+            if (currentNbLine > 3)
+            {
+                currentNbLine--;
+                break;
+            }
+            result << '\n';
+            currentWidth = 0;
+        }
+        else if (currentWidth > 0)
+        {
+            result << ' ';
+            currentWidth++;
+        }
+        result << word;
+        currentWidth += word.length();
+    }
+    *nbLine = currentNbLine;
+    return result.str();
 }

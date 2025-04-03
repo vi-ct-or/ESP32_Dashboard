@@ -46,6 +46,11 @@ void updateFW()
         {
             if (performOTAUpdateFromSPIFFS())
             {
+                // clear db
+                preferences3.begin("stravaDB", false);
+                preferences3.clear();
+                preferences3.end();
+
                 preferences3.begin("ota", false);
                 preferences3.putUChar("swVersion", newVersion);
                 preferences3.end();

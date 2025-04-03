@@ -16,13 +16,15 @@ typedef enum eDataType
 
 typedef struct sActivity
 {
-    uint16_t dist;
-    uint16_t time;
-    uint16_t deniv;
-    time_t timestamp;
+    bool isFilled = false;
+    uint16_t dist = 0;
+    uint16_t time = 0;
+    uint16_t deniv = 0;
+    time_t timestamp = 0;
     TeActivityType type;
-    std::string name;
-    std::string polyline;
+    std::string name = "";
+    std::string polyline = "";
+    uint32_t kudos = 0;
 } TsActivity;
 
 #define DAYS_BY_YEAR 366

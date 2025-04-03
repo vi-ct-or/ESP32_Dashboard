@@ -52,8 +52,8 @@ void setup()
   esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
 
-  pinMode(2, OUTPUT);
-  digitalWrite(2, HIGH);
+  // pinMode(2, OUTPUT);
+  //  digitalWrite(2, HIGH);
   sntp_set_time_sync_notification_cb(cbSyncTime);
 
   wakeup_reason = esp_sleep_get_wakeup_cause();
@@ -97,6 +97,10 @@ void setup()
     Serial.println("wakeup after reset");
     Serial.println(wakeup_reason);
 
+    // preferences2.begin("stravaDB", false);
+    // preferences2.clear();
+    // preferences2.end();
+
     if (connectWifi(10000))
     {
       updateFW();
@@ -108,7 +112,13 @@ void setup()
     prevHour = 255;
     prevDay = 255;
     preferences2.begin("date", false);
-    prevMonth = preferences2.getUShort("prevMonth", timeinfo1.tm_mon);
+    prevMonth = preferences2.getUShort("prevMonth", 255);
+    if (prevMonth == 255)
+    {
+      prevMonth = timeinfo1.tm_mon;
+      preferences2.putUShort("prevMonth", prevMonth);
+      Serial.println("prevMonth saved in flash");
+    }
     preferences2.end();
   }
   else
@@ -137,7 +147,7 @@ void loop()
       {
         doSyncNtp = true;
       }
-      if ((timeinfo1.tm_hour == 10 || timeinfo1.tm_hour == 20) && timeinfo1.tm_min == 59)
+      if ((timeinfo1.tm_hour == 10 || timeinfo1.tm_hour == 20) && timeinfo1.tm_min == 59 && timeinfo1.tm_sec <= 5)
       {
         refresh = true; // refresh screen next time
       }
@@ -152,8 +162,6 @@ void loop()
     if (timeinfo1.tm_mon != prevMonth)
     {
       Serial.println("update month");
-      Serial.print("prevMonth");
-      Serial.println(prevMonth);
       newMonthBegin(prevMonth, timeinfo1);
       preferences2.begin("date", false);
       prevMonth = timeinfo1.tm_mon;
@@ -174,15 +182,17 @@ void loop()
       initDB();
       if (connectWifi(10000))
       {
+        esp_task_wdt_reset();
         populateDB();
+        esp_task_wdt_reset();
       }
       if (newActivity || isRefreshed)
       {
-        displayStravaAllYear();
-        displayLastActivity();
+        displayStravaAllYear(&timeinfo1);
         displayStravaPolyline();
         newActivity = false;
       }
+      displayLastActivity();
       if (timeinfo1.tm_hour % 2 == 0)
       {
         displayStravaMonths(&timeinfo1);
@@ -204,14 +214,14 @@ void loop()
       sleepTime = 48;
     }
     getLocalTime(&timeinfo1);
-    if (timeinfo1.tm_sec < sleepTime - 1)
+    if (timeinfo1.tm_sec < sleepTime - 1 && timeinfo1.tm_min == prevMinute)
     {
       esp_sleep_enable_timer_wakeup((sleepTime - timeinfo1.tm_sec) * uS_TO_S_FACTOR);
       Serial.print("Going to sleep for ");
       Serial.print(sleepTime - timeinfo1.tm_sec);
       Serial.println("seconds");
       Serial.flush();
-      digitalWrite(2, LOW);
+      // digitalWrite(2, LOW);
       esp_deep_sleep_start();
     }
     goToSleep = false;

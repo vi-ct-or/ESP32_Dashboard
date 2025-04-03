@@ -9,7 +9,7 @@ void initDisplay(void);
 void displayTemplate();
 void displayTime(struct tm *now);
 void displayDate(struct tm *now);
-void displayStravaAllYear();
+void displayStravaAllYear(struct tm *now);
 void displayStravaMonths(struct tm *now);
 void displayStravaWeeks(struct tm *now);
 void displayStravaPolyline();
