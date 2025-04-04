@@ -134,7 +134,10 @@ void loop()
     if (timeinfo1.tm_min != prevMinute || isRefreshed)
     {
       // Serial.println("update minute");
-      prevMinute = timeinfo1.tm_min;
+      if (timeinfo1.tm_min != prevMinute)
+      {
+        prevMinute = timeinfo1.tm_min;
+      }
       displayTime(&timeinfo1);
       Serial.print(timeinfo1.tm_hour);
       Serial.print(":");
@@ -152,7 +155,10 @@ void loop()
     if (timeinfo1.tm_mday != prevDay || isRefreshed)
     {
       // Serial.println("update day");
-      prevDay = timeinfo1.tm_mday;
+      if (timeinfo1.tm_mday != prevDay)
+      {
+        prevDay = timeinfo1.tm_mday;
+      }
       displayDate(&timeinfo1);
     }
     if (timeinfo1.tm_mon != prevMonth)
@@ -174,7 +180,10 @@ void loop()
           updateFW();
         }
       }
-      prevHour = timeinfo1.tm_hour;
+      if (timeinfo1.tm_hour != prevHour)
+      {
+        prevHour = timeinfo1.tm_hour;
+      }
       initDB();
       if (connectWifi(10000))
       {
