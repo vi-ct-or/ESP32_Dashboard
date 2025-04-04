@@ -34,7 +34,7 @@ bool goToSleep = false;
 RTC_DATA_ATTR bool doSyncNtp = false;
 bool GPSSync = false;
 
-static void IRAM_ATTR buttonInterrupt(void);
+// static void IRAM_ATTR buttonInterrupt(void);
 void syncNTP();
 void cbSyncTime(struct timeval *tv);
 
@@ -52,7 +52,7 @@ void setup()
   esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
 
-  // pinMode(2, OUTPUT);
+  pinMode(2, OUTPUT);
   //  digitalWrite(2, HIGH);
   sntp_set_time_sync_notification_cb(cbSyncTime);
 
@@ -79,23 +79,19 @@ void setup()
     configTzTime(TZ_INFO, NTP_SERVER);
     if (doSyncNtp && connectWifi(10000))
     {
-      Serial.println(sntp_restart());
+      sntp_restart();
       doSyncNtp = false;
     }
   }
   while (!getLocalTime(&timeinfo1))
   {
     esp_task_wdt_reset();
-    Serial.println("getLocaltime failed");
   }
-
-  Serial.println("GetLocalTimeOK");
-
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
     // first boot
-    Serial.println("wakeup after reset");
-    Serial.println(wakeup_reason);
+    // Serial.println("wakeup after reset");
+    // Serial.println(wakeup_reason);
 
     // preferences2.begin("stravaDB", false);
     // preferences2.clear();
@@ -117,13 +113,13 @@ void setup()
     {
       prevMonth = timeinfo1.tm_mon;
       preferences2.putUShort("prevMonth", prevMonth);
-      Serial.println("prevMonth saved in flash");
+      // Serial.println("prevMonth saved in flash");
     }
     preferences2.end();
   }
   else
   {
-    Serial.println("wakeup after deepsleep timer");
+    // Serial.println("wakeup after deepsleep timer");
   }
   displayTemplate();
   displayTimeSync(GPSSync);
@@ -137,7 +133,7 @@ void loop()
   {
     if (timeinfo1.tm_min != prevMinute || isRefreshed)
     {
-      Serial.println("update minute");
+      // Serial.println("update minute");
       prevMinute = timeinfo1.tm_min;
       displayTime(&timeinfo1);
       Serial.print(timeinfo1.tm_hour);
@@ -155,13 +151,13 @@ void loop()
     }
     if (timeinfo1.tm_mday != prevDay || isRefreshed)
     {
-      Serial.println("update day");
+      // Serial.println("update day");
       prevDay = timeinfo1.tm_mday;
       displayDate(&timeinfo1);
     }
     if (timeinfo1.tm_mon != prevMonth)
     {
-      Serial.println("update month");
+      // Serial.println("update month");
       newMonthBegin(prevMonth, timeinfo1);
       preferences2.begin("date", false);
       prevMonth = timeinfo1.tm_mon;
@@ -170,7 +166,7 @@ void loop()
     }
     if (timeinfo1.tm_hour != prevHour || isRefreshed)
     {
-      Serial.println("update hour");
+      // Serial.println("update hour");
       if (timeinfo1.tm_hour == 10)
       {
         if (connectWifi(10000))
@@ -217,9 +213,9 @@ void loop()
     if (timeinfo1.tm_sec < sleepTime - 1 && timeinfo1.tm_min == prevMinute)
     {
       esp_sleep_enable_timer_wakeup((sleepTime - timeinfo1.tm_sec) * uS_TO_S_FACTOR);
-      Serial.print("Going to sleep for ");
-      Serial.print(sleepTime - timeinfo1.tm_sec);
-      Serial.println("seconds");
+      // Serial.print("Going to sleep for ");
+      // Serial.print(sleepTime - timeinfo1.tm_sec);
+      // Serial.println("seconds");
       Serial.flush();
       // digitalWrite(2, LOW);
       esp_deep_sleep_start();
@@ -231,22 +227,22 @@ void loop()
   delay(100);
 }
 
-static void IRAM_ATTR buttonInterrupt(void)
-{
-  // static unsigned long last_interrupt_time = 0;
-  // unsigned long interrupt_time = millis();
-  // // If interrupts come faster than 500ms, assume it's a bounce and ignore
-  // if ((interrupt_time - last_interrupt_time > 500) || last_interrupt_time > interrupt_time)
-  // {
+// static void IRAM_ATTR buttonInterrupt(void)
+// {
+//   // static unsigned long last_interrupt_time = 0;
+//   // unsigned long interrupt_time = millis();
+//   // // If interrupts come faster than 500ms, assume it's a bounce and ignore
+//   // if ((interrupt_time - last_interrupt_time > 500) || last_interrupt_time > interrupt_time)
+//   // {
 
-  //   currentMenu++;
-  //   if (currentMenu >= NB_MENU)
-  //   {
-  //     currentMenu = 0;
-  //   }
-  //   last_interrupt_time = interrupt_time;
-  // }
-}
+//   //   currentMenu++;
+//   //   if (currentMenu >= NB_MENU)
+//   //   {
+//   //     currentMenu = 0;
+//   //   }
+//   //   last_interrupt_time = interrupt_time;
+//   // }
+// }
 
 void syncNTP()
 {
@@ -256,5 +252,5 @@ void syncNTP()
 
 void cbSyncTime(struct timeval *tv)
 { // callback function to show when NTP was synchronized
-  Serial.println("callback NTP time now synched");
+  // Serial.println("callback NTP time now synched");
 }
