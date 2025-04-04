@@ -367,8 +367,8 @@ void drawYearTitle(const void *pv)
 {
     const struct tm *now = (const struct tm *)pv;
     display.setPartialWindow(0, 60, 100, 23);
-    display.setCursor(10, 60);
-    display.setTextSize(3);
+    display.setCursor(10, 70);
+    display.setTextSize(2);
     display.print(std::to_string(now->tm_year + 1900).c_str());
 }
 
