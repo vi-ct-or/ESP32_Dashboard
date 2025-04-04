@@ -3,7 +3,6 @@
 #include <GxEPD2_BW.h>
 #include "time.h"
 #include <string>
-#include <sstream>
 #include <list>
 #include "strava.h"
 #include "polyline.h"
@@ -1089,33 +1088,48 @@ std::string speedToPace(double speedKmH)
 
 std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine)
 {
-    std::istringstream stream(input);
-    std::ostringstream result;
+    std::string result;
     std::string word;
     int currentWidth = 0;
     int currentNbLine = 1;
 
-    while (stream >> word)
+    for (size_t i = 0; i < input.size(); ++i)
     {
-        if (currentWidth + word.length() > maxWidth)
+        char c = input[i];
+        if (c == ' ' || c == '\n' || i == input.size() - 1)
         {
-            currentNbLine++;
-            if (currentNbLine > 3)
+            if (i == input.size() - 1 && c != ' ')
             {
-                currentNbLine--;
-                break;
+                word += c; // Add the last character if it's not a space
             }
-            result << '\n';
-            currentWidth = 0;
+
+            if (currentWidth + word.length() > maxWidth)
+            {
+                currentNbLine++;
+                if (currentNbLine > maxLine)
+                {
+                    currentNbLine--;
+                    break;
+                }
+                result += '\n';
+                currentWidth = 0;
+            }
+            else if (currentWidth > 0)
+            {
+                result += ' ';
+                currentWidth++;
+            }
+
+            result += word;
+            currentWidth += word.length();
+            word.clear();
         }
-        else if (currentWidth > 0)
+        else
         {
-            result << ' ';
-            currentWidth++;
+            word += c;
         }
-        result << word;
-        currentWidth += word.length();
     }
+
     *nbLine = currentNbLine;
-    return result.str();
+    return result;
 }
