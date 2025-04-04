@@ -137,7 +137,9 @@ bool getFileFromServer()
                 esp_task_wdt_reset();
             }
         }
-        file.close();  // Close the file
+        file.close(); // Close the file
+        Serial.print("size file downloaded = ");
+        Serial.println(file.size());
         client.stop(); // Close the client connection
         Serial.println("File saved successfully");
         displayUpdating(2);
@@ -167,6 +169,7 @@ bool performOTAUpdateFromSPIFFS()
     displayUpdating(3);
 
     size_t fileSize = file.size(); // Get the file size
+    Serial.print("size file reopen = ");
     Serial.println(fileSize);
 
     // Begin OTA update process with specified size and flash destination
