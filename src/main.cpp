@@ -171,7 +171,7 @@ void loop()
     if (timeinfo1.tm_hour != prevHour || isRefreshed)
     {
       Serial.println("update hour");
-      if (timeinfo1.tm_hour == 10 or timeinfo1.tm_hour == 20)
+      if (timeinfo1.tm_hour == 10)
       {
         if (connectWifi(10000))
         {
