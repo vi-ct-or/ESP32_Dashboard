@@ -25,6 +25,9 @@ int getMinLng();
 void drawDateStr(const void *pv);
 void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
+void drawYearDistance(const void *pv);
+void drawYearTime(const void *pv);
+void drawYearDeniv(const void *pv);
 void drawYearTitle(const void *pv);
 void drawStravaPolyline(const void *pv);
 void drawFull(const void *pv);
@@ -82,7 +85,10 @@ void displayDate(struct tm *now)
 void displayStravaAllYear(struct tm *now)
 {
     display.drawPaged(drawYearTitle, (const void *)now);
-    display.drawPaged(drawYearStr, 0);
+    // display.drawPaged(drawYearStr, 0);
+    display.drawPaged(drawYearDistance, 0);
+    display.drawPaged(drawYearTime, 0);
+    display.drawPaged(drawYearDeniv, 0);
     display.hibernate();
 }
 
@@ -206,7 +212,7 @@ void drawTimeStr(const void *pv)
     }
     timeStr += std::to_string(now->tm_min);
 
-    drawText(120, 5, timeStr.c_str());
+    drawText(120, 10, timeStr.c_str());
 }
 
 void drawDateStr(const void *pv)
@@ -310,7 +316,7 @@ void drawDateStr(const void *pv)
     dateStr += nb;
     dateStr += "\n";
     dateStr += month;
-    drawText(1, 1, dateStr.c_str());
+    drawText(1, 5, dateStr.c_str());
 }
 
 void drawYearStr(const void *pv)
@@ -328,38 +334,152 @@ void drawYearStr(const void *pv)
     deniv = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 0, currentDay));
     deniv.insert(0, 6 - deniv.size(), ' ');
     yearStravaBike = dist;
-    yearStravaBike += "km ";
-    yearStravaBike += time;
-    yearStravaBike += "h ";
-    yearStravaBike += deniv;
-    yearStravaBike += "m";
+    // yearStravaBike += "km ";
+    // yearStravaBike += time;
+    // yearStravaBike += "h ";
+    // yearStravaBike += deniv;
+    // yearStravaBike += "m";
+    int16_t x, y;
+    uint16_t w, h;
+    // dist bike
+    display.getTextBounds(dist.c_str(), 50, 105, &x, &y, &w, &h);
+    display.setPartialWindow(x, y, w, h);
+    display.setCursor(50, 113);
+    display.print(dist.c_str());
+    // time bike
+    display.getTextBounds(time.c_str(), 130, 105, &x, &y, &w, &h);
+    display.setPartialWindow(x, y, w, h);
+    display.setCursor(120, 113);
+    display.print(time.c_str());
+    // // deniv bike
+    // display.getTextBounds(deniv.c_str(), 220, 105, &x, &y, &w, &h);
+    // display.setPartialWindow(x, y, w, h);
+    // display.print(deniv.c_str());
 
     // run
     dist = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 0, currentDay) / 10000);
     dist.insert(0, 5 - dist.size(), ' ');
-    time = time = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_TIME, 0, currentDay) / 3600);
-    time.insert(0, 3 - time.size(), ' ');
-    deniv = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 0, currentDay));
-    deniv.insert(0, 6 - deniv.size(), ' ');
+    // time = time = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_TIME, 0, currentDay) / 3600);
+    // time.insert(0, 3 - time.size(), ' ');
+    // deniv = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 0, currentDay));
+    // deniv.insert(0, 6 - deniv.size(), ' ');
     yearStravaRun = dist;
-    yearStravaRun += "km ";
-    yearStravaRun += time;
-    yearStravaRun += "h ";
-    yearStravaRun += deniv;
-    yearStravaRun += "m";
+    // yearStravaRun += "km ";
+    // yearStravaRun += time;
+    // yearStravaRun += "h ";
+    // yearStravaRun += deniv;
+    // yearStravaRun += "m";
 
+    // int16_t x1b, y1b, x1r, y1r, x1, y1;
+    // uint16_t wb, hb, wr, hr, w, h;
+    // display.getTextBounds(yearStravaBike.c_str(), 50, 105, &x1b, &y1b, &wb, &hb);
+    // display.getTextBounds(yearStravaRun.c_str(), 50, 135, &x1r, &y1r, &wr, &hr);
+    // x1 = x1b; // bike is above run
+    // y1 = y1b; // bike is above run
+    // w = max(wb, wr);
+    // h = y1r + hr - y1b; // bike is above run
+    // display.setPartialWindow(x1, y1, w, h);
+    // display.setCursor(50, 105);
+    // display.print(yearStravaBike.c_str());
+    // display.setCursor(50, 135);
+    // display.print(yearStravaRun.c_str());
+}
+
+void drawYearDistance(const void *pv)
+{
+    display.setTextSize(2);
+    std::string yearStravaBike, yearStravaRun, dist;
+    struct tm tm;
+    getLocalTime(&tm);
+    uint16_t currentDay = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
+    // bike
+    dist = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DISTANCE, 0, currentDay) / 10000);
+    dist.insert(0, 5 - dist.size(), ' ');
+    yearStravaBike = dist;
+
+    // run
+    dist = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 0, currentDay) / 10000);
+    dist.insert(0, 5 - dist.size(), ' ');
+    yearStravaRun = dist;
+
+    // dist bike
     int16_t x1b, y1b, x1r, y1r, x1, y1;
     uint16_t wb, hb, wr, hr, w, h;
-    display.getTextBounds(yearStravaBike.c_str(), 50, 105, &x1b, &y1b, &wb, &hb);
-    display.getTextBounds(yearStravaRun.c_str(), 50, 135, &x1r, &y1r, &wr, &hr);
+    display.getTextBounds(yearStravaBike.c_str(), 58, 106, &x1b, &y1b, &wb, &hb);
+    display.getTextBounds(yearStravaRun.c_str(), 58, 136, &x1r, &y1r, &wr, &hr);
     x1 = x1b; // bike is above run
     y1 = y1b; // bike is above run
     w = max(wb, wr);
     h = y1r + hr - y1b; // bike is above run
     display.setPartialWindow(x1, y1, w, h);
-    display.setCursor(50, 105);
+    display.setCursor(58, 106);
     display.print(yearStravaBike.c_str());
-    display.setCursor(50, 135);
+    display.setCursor(58, 136);
+    display.print(yearStravaRun.c_str());
+}
+
+void drawYearTime(const void *pv)
+{
+    display.setTextSize(2);
+    std::string yearStravaBike, yearStravaRun, time;
+    struct tm tm;
+    getLocalTime(&tm);
+    uint16_t currentDay = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
+    // bike
+    time = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_TIME, 0, currentDay) / 3600);
+    time.insert(0, 4 - time.size(), ' ');
+    yearStravaBike = time;
+
+    // run
+    time = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_TIME, 0, currentDay) / 3600);
+    time.insert(0, 4 - time.size(), ' ');
+    yearStravaRun = time;
+
+    // dist bike
+    int16_t x1b, y1b, x1r, y1r, x1, y1;
+    uint16_t wb, hb, wr, hr, w, h;
+    display.getTextBounds(yearStravaBike.c_str(), 140, 106, &x1b, &y1b, &wb, &hb);
+    display.getTextBounds(yearStravaRun.c_str(), 140, 136, &x1r, &y1r, &wr, &hr);
+    x1 = x1b; // bike is above run
+    y1 = y1b; // bike is above run
+    w = max(wb, wr);
+    h = y1r + hr - y1b; // bike is above run
+    display.setPartialWindow(x1, y1, w, h);
+    display.setCursor(140, 106);
+    display.print(yearStravaBike.c_str());
+    display.setCursor(140, 136);
+    display.print(yearStravaRun.c_str());
+}
+void drawYearDeniv(const void *pv)
+{
+    display.setTextSize(2);
+    std::string yearStravaBike, yearStravaRun, deniv;
+    struct tm tm;
+    getLocalTime(&tm);
+    uint16_t currentDay = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
+    // bike
+    deniv = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 0, currentDay));
+    deniv.insert(0, 6 - deniv.size(), ' ');
+    yearStravaBike = deniv;
+
+    // run
+    deniv = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 0, currentDay));
+    deniv.insert(0, 6 - deniv.size(), ' ');
+    yearStravaRun = deniv;
+
+    // dist bike
+    int16_t x1b, y1b, x1r, y1r, x1, y1;
+    uint16_t wb, hb, wr, hr, w, h;
+    display.getTextBounds(yearStravaBike.c_str(), 220, 106, &x1b, &y1b, &wb, &hb);
+    display.getTextBounds(yearStravaRun.c_str(), 220, 136, &x1r, &y1r, &wr, &hr);
+    x1 = x1b; // bike is above run
+    y1 = y1b; // bike is above run
+    w = max(wb, wr);
+    h = y1r + hr - y1b; // bike is above run
+    display.setPartialWindow(x1, y1, w, h);
+    display.setCursor(220, 106);
+    display.print(yearStravaBike.c_str());
+    display.setCursor(220, 136);
     display.print(yearStravaRun.c_str());
 }
 
@@ -377,9 +497,32 @@ void drawFull(const void *pv)
     display.setFullWindow();
     display.setTextSize(1);
     display.setCursor(55, 90);
-    display.print("   Distance      Temps       Denivele");
+    display.print("   Distance      Temps        Denivele");
     display.drawBitmap(0, 100, bicycleBitMap, 42, 28, GxEPD_BLACK);
     display.drawBitmap(0, 100 + 30, runningShoeBitmap, 42, 28, GxEPD_BLACK);
+    uint16_t y = 113;
+
+    display.setTextSize(1);
+    display.setCursor(120, y);
+    display.print("km");
+    display.setTextSize(1);
+    display.setCursor(120, y + 30);
+    display.print("km");
+
+    display.setCursor(190, y);
+    display.print("h");
+    display.setTextSize(1);
+    display.setCursor(190, y + 30);
+    display.print("h");
+
+    display.setCursor(294, y);
+    display.print("m");
+    display.setTextSize(1);
+    display.setCursor(294, y + 30);
+    display.print("m");
+
+    // display.drawLine(0, 128, 300, 128, GxEPD_BLACK);
+    // display.drawLine(0, 158, 300, 158, GxEPD_BLACK);
 }
 
 void drawStravaPolyline(const void *pv)
@@ -402,14 +545,35 @@ void drawStravaPolyline(const void *pv)
         int minLng = getMinLng();
 
         int maxDiff = max(maxLat - minLat, maxLng - minLng);
-        int offsetV = (SQUARE_SIZE - (int)(((float)((maxLat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - 1) / 2;
-        int offsetH = (int)(((float)((maxLng - minLng) * SQUARE_SIZE)) / (float)maxDiff) / 2;
+        int minDiff = min(maxLat - minLat, maxLng - minLng);
+        int offsetV = 0;
+        int offsetH = 0;
+        int pixelLargeur;
+        pixelLargeur = minDiff * SQUARE_SIZE / maxDiff;
+
+        if (minDiff == maxLat - minLat)
+        {
+            // only apply to y
+            offsetV = (SQUARE_SIZE - pixelLargeur) / 2;
+            // offsetV = (SQUARE_SIZE - (int)(((float)((maxLat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - 1) / 2;
+        }
+        else
+        {
+            // only apply to x
+            offsetH = (SQUARE_SIZE - pixelLargeur) / 2;
+            // offsetH = (int)(((float)((maxLng - minLng) * SQUARE_SIZE)) / (float)maxDiff) / 2;
+        }
+
+        Serial.print("offsetV = ");
+        Serial.println(offsetV);
+        Serial.print("offsetH = ");
+        Serial.println(offsetH);
         int x, y, prevx = -1, prevy = -1;
-        //      display.drawRect(150, 250, SQUARE_SIZE, SQUARE_SIZE, GxEPD_BLACK);
+        display.drawRect(150, 249, SQUARE_SIZE, SQUARE_SIZE + 1, GxEPD_BLACK);
         for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
         {
-            x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) /*+ offsetH*/;
-            y = 249 + SQUARE_SIZE - (int)(((float)((it->lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) /*- offsetV*/;
+            x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
+            y = 249 + SQUARE_SIZE - (int)(((float)((it->lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - offsetV;
             if (prevx != -1 && prevy != -1)
             {
                 display.drawLine(prevx, prevy, x, y, GxEPD_BLACK);
