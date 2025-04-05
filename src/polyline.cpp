@@ -44,5 +44,4 @@ void decode(const char *arr, int length)
         coord.lng = lng / 10; // (float)factor;
         coordList.push_back(coord);
     }
-    coordList.pop_back();
 }
