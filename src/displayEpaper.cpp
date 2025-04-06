@@ -319,9 +319,9 @@ void drawDateStr(const void *pv)
     int16_t x1, y1;
     uint16_t w, h;
     std::string maxDateLenght = "Vendredi\n31\nSeptembre";
+    display.setTextSize(2);
     display.getTextBounds(maxDateLenght.c_str(), 1, 5, &x1, &y1, &w, &h);
     display.setPartialWindow(x1, y1, w, h);
-    display.setTextSize(2);
     display.setCursor(1, 5);
     display.print(dateStr.c_str());
 }
