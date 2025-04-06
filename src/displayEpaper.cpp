@@ -217,7 +217,6 @@ void drawTimeStr(const void *pv)
 void drawDateStr(const void *pv)
 {
     const struct tm *now = (const struct tm *)pv;
-    display.setTextSize(2);
     std::string dateStr, day, nb, month;
     switch (now->tm_wday)
     {
@@ -315,7 +314,16 @@ void drawDateStr(const void *pv)
     dateStr += nb;
     dateStr += "\n";
     dateStr += month;
-    drawText(1, 5, dateStr.c_str());
+    // drawText(1, 5, dateStr.c_str());
+    //  simulate max lenght to erase correctly previous day/month if it was longer
+    int16_t x1, y1;
+    uint16_t w, h;
+    std::string maxDateLenght = "Vendredi\n31\nSeptembre";
+    display.getTextBounds(maxDateLenght.c_str(), 1, 5, &x1, &y1, &w, &h);
+    display.setPartialWindow(x1, y1, w, h);
+    display.setTextSize(2);
+    display.setCursor(1, 5);
+    display.print(dateStr.c_str());
 }
 
 void drawYearStr(const void *pv)
@@ -526,7 +534,6 @@ void drawFull(const void *pv)
 
 void drawStravaPolyline(const void *pv)
 {
-    display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
     TsActivity *lastAct = getStravaLastActivity();
 
     if (lastAct == NULL || lastAct->isFilled == false)
@@ -563,12 +570,13 @@ void drawStravaPolyline(const void *pv)
             // offsetH = (int)(((float)((maxLng - minLng) * SQUARE_SIZE)) / (float)maxDiff) / 2;
         }
 
-        Serial.print("offsetV = ");
-        Serial.println(offsetV);
-        Serial.print("offsetH = ");
-        Serial.println(offsetH);
+        // Serial.print("offsetV = ");
+        // Serial.println(offsetV);
+        // Serial.print("offsetH = ");
+        // Serial.println(offsetH);
         int x, y, prevx = -1, prevy = -1;
-        display.drawRect(150, 249, SQUARE_SIZE, SQUARE_SIZE + 1, GxEPD_BLACK);
+        display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
+        // display.drawRect(150, 249, SQUARE_SIZE, SQUARE_SIZE + 1, GxEPD_BLACK);
         for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
         {
             x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
