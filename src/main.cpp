@@ -122,7 +122,7 @@ void setup()
     // Serial.println("wakeup after deepsleep timer");
   }
   displayTemplate();
-  displayTimeSync(GPSSync);
+  // displayTimeSync(GPSSync);
   esp_task_wdt_reset();
 }
 
