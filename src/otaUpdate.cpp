@@ -29,7 +29,7 @@ void updateFW()
 {
     uint8_t currentVersion; // value will default to 0, if not set yet in NVS
     preferences3.begin("ota", false);
-    currentVersion = preferences3.getUChar("swVersion", 0);
+    currentVersion = preferences3.getUChar("swVersion", 1);
     preferences3.end();
 
     uint8_t newVersion = getVersion();
