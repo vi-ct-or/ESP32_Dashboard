@@ -85,6 +85,8 @@ void setup()
   }
   while (!getLocalTime(&timeinfo1))
   {
+    connectWifi(10000);
+    delay(1000);
     esp_task_wdt_reset();
   }
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
