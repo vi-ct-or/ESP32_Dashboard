@@ -29,7 +29,7 @@ void updateFW()
 {
     uint8_t currentVersion; // value will default to 0, if not set yet in NVS
     preferences3.begin("ota", false);
-    currentVersion = preferences3.getUChar("swVersion", 1);
+    currentVersion = preferences3.getUChar("swVersion", 2);
     preferences3.end();
 
     uint8_t newVersion = getVersion();
@@ -47,9 +47,11 @@ void updateFW()
             if (performOTAUpdateFromSPIFFS())
             {
                 // clear db
-                preferences3.begin("stravaDB", false);
-                preferences3.clear();
-                preferences3.end();
+                // preferences3.begin("stravaDB", false);
+                // preferences3.clear();
+                // preferences3.end();
+                nvs_flash_erase(); // erase the NVS partition and...
+                nvs_flash_init();  // initialize the NVS partition.
 
                 preferences3.begin("ota", false);
                 preferences3.putUChar("swVersion", newVersion);

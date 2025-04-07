@@ -852,6 +852,7 @@ void drawLastTwelveMonths(const void *pv)
     display.print(maxMonth / 2);
     display.setCursor(1, y - 3);
     display.print(0);
+    display.print(" km");
 }
 
 void drawUpdating(const void *pv)
@@ -1023,6 +1024,7 @@ void drawWeeks(const void *pv)
     display.print(maxWeek / 2);
     display.setCursor(0, y - 3);
     display.print(0);
+    display.print(" km");
 }
 
 bool isLeap(int year)
