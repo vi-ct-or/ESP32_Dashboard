@@ -148,7 +148,7 @@ void loop()
       {
         doSyncNtp = true;
       }
-      if ((timeinfo1.tm_hour == 10 || timeinfo1.tm_hour == 20) && timeinfo1.tm_min == 59 && timeinfo1.tm_sec <= 5)
+      if ((timeinfo1.tm_hour == 10) && timeinfo1.tm_min == 59 && timeinfo1.tm_sec <= 5)
       {
         refresh = true; // refresh screen next time
       }

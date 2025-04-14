@@ -357,16 +357,23 @@ void populateDB(void)
 
     getYearActivities(startTimestamp, endTimestamp);
     // save loopYear
-    preferences.begin("stravaDB", false);
-    preferences.clear();
-    preferences.putLong("lastDayPopulate", lastDayPopulate);
-    preferences.putLong64("lastActivityId", lastActivityId);
-    preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
-    preferences.end();
-    Serial.print("lastdaypopulate end : ");
-    Serial.println(lastDayPopulate);
-    Serial.print("lastActivityId end : ");
-    Serial.println(lastActivityId);
+    if (newActivity)
+    {
+        preferences.begin("stravaDB", false);
+        preferences.clear();
+        preferences.putLong("lastDayPopulate", lastDayPopulate);
+        preferences.putLong64("lastActivityId", lastActivityId);
+        preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+        preferences.end();
+        Serial.print("lastdaypopulate end : ");
+        Serial.println(lastDayPopulate);
+        Serial.print("lastActivityId end : ");
+        Serial.println(lastActivityId);
+    }
+    else
+    {
+        Serial.println("no new activity, no save");
+    }
     // printDB(0);
 }
 
