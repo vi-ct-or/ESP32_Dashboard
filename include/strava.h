@@ -1,5 +1,8 @@
 #ifndef STRAVA_H
 #define STRAVA_H
+
+#define MAX_NAME_LENGTH 40
+
 typedef enum eActivityType
 {
     ACTIVITY_TYPE_UNKNOWN,
@@ -16,26 +19,36 @@ typedef enum eDataType
 
 typedef struct sActivity
 {
-    bool isFilled = false;
-    uint16_t dist = 0;
-    uint16_t time = 0;
-    uint16_t deniv = 0;
-    time_t timestamp = 0;
+    bool isFilled;
+    uint16_t dist;
+    uint16_t time;
+    uint16_t deniv;
+    time_t timestamp;
     TeActivityType type;
-    std::string name = "";
-    std::string polyline = "";
-    uint32_t kudos = 0;
+    char name[MAX_NAME_LENGTH];
+    std::string polyline;
+    uint32_t kudos;
 } TsActivity;
 
+typedef enum eStravaMessage
+{
+    STRAVA_MESSAGE_NONE,
+    STRAVA_MESSAGE_NEW_MONTH,
+    STRAVA_MESSAGE_POPULATE,
+} TeStravaMessage;
+extern QueueHandle_t xQueueStrava;
+extern SemaphoreHandle_t xSemaphore;
+
 #define DAYS_BY_YEAR 366
-extern bool newActivity;
+extern bool newActivityUploaded;
 extern const uint16_t monthOffset[];
 
 void initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
 void populateDB(void);
 void newYearBegin();
-void newMonthBegin(uint8_t prevMonth, struct tm tm);
+void newMonthBegin();
+void StravaTaskFunction(void *parameter);
 
 TsActivity *getStravaLastActivity();
 
