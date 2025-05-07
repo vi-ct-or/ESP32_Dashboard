@@ -40,7 +40,6 @@ void updateFW()
     if (newVersion > currentVersion)
     {
 
-        refresh = true; // display should be refreshed after update
         displayUpdating(0);
         if (getFileFromServer())
         {
@@ -136,7 +135,7 @@ bool getFileFromServer()
                 size_t bytesRead = client.readBytes(buffer, bufferSize);
                 file.write(buffer, bytesRead); // Write data to file
                 digitalWrite(2, !digitalRead(2));
-                esp_task_wdt_reset();
+                // esp_task_wdt_reset();
             }
         }
         file.close(); // Close the file
@@ -176,7 +175,7 @@ bool performOTAUpdateFromSPIFFS()
 
     // Begin OTA update process with specified size and flash destination
 
-    esp_task_wdt_reset();
+    // esp_task_wdt_reset();
     if (!Update.begin(fileSize, U_FLASH))
     {
         Serial.println("Cannot do the update");

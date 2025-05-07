@@ -6,6 +6,8 @@
 #include <Preferences.h>
 #include "strava.h"
 #include "Arduino.h"
+#include "network.h"
+#include "displayEpaper.h"
 #include <esp_task_wdt.h>
 
 typedef struct sDistDay
@@ -34,8 +36,12 @@ time_t lastDayPopulate;
 uint64_t lastActivityId;
 struct tm timeinfo;
 Preferences preferences;
-RTC_DATA_ATTR bool newActivity = true;
+RTC_DATA_ATTR bool newActivityUploaded = true;
+RTC_DATA_ATTR bool activityUpdated = false;
 RTC_DATA_ATTR TsActivity lastActivity;
+
+QueueHandle_t xQueueStrava;
+SemaphoreHandle_t xSemaphore = NULL;
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
@@ -45,14 +51,27 @@ void timeStringToTm(const char *str, struct tm *tm);
 TeActivityType getActivityType(const char *str);
 void getYearActivities(time_t start, time_t end);
 void printDB(uint16_t nbDays);
+bool lastActivityUpdated(TsActivity newActivity);
 
 void initDB()
 {
-    preferences.begin("stravaDB", false);
-    lastActivityId = preferences.getLong64("lastActivityId", 0);
-    lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
-    preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
-    preferences.end();
+    static bool isDBInit = false;
+    if (isDBInit == false)
+    {
+        Serial.println("initDB done");
+        preferences.begin("stravaDB", false);
+        lastActivityId = preferences.getLong64("lastActivityId", 0);
+        lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
+        preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
+        preferences.end();
+        isDBInit = true;
+    }
+    else
+    {
+        Serial.print("initDB already done : ");
+        Serial.print("lastDayPopulate = ");
+        Serial.println(lastDayPopulate);
+    }
 }
 
 bool getAccessToken(char *ret_token)
@@ -191,20 +210,29 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 Serial.println(activityId);
                 Serial.print("activity start timestamp : ");
                 Serial.println(activityStartTime);
+                TsActivity tmpActivity;
                 if (activityStartTime >= lastActivity.timestamp)
                 {
-                    lastActivity.isFilled = true;
-                    lastActivity.polyline = array[i]["map"]["summary_polyline"].as<std::string>();
-                    lastActivity.type = activityType;
-                    lastActivity.time = movingTime;
-                    lastActivity.deniv = array[i]["total_elevation_gain"].as<int>();
-                    lastActivity.dist = (uint16_t)(array[i]["distance"].as<float>() / 10.0);
-                    lastActivity.name = array[i]["name"].as<std::string>();
-                    lastActivity.kudos = array[i]["kudos_count"].as<uint32_t>();
+                    tmpActivity.isFilled = true;
+                    tmpActivity.polyline = array[i]["map"]["summary_polyline"].as<std::string>();
+                    tmpActivity.type = activityType;
+                    tmpActivity.time = movingTime;
+                    tmpActivity.deniv = array[i]["total_elevation_gain"].as<int>();
+                    tmpActivity.dist = (uint16_t)(array[i]["distance"].as<float>() / 10.0);
+
+                    std::string tmpName = array[i]["name"].as<std::string>();
+                    memcpy(tmpActivity.name, tmpName.c_str(), tmpName.size() + 1);
+                    tmpActivity.name[tmpName.size()] = '\0';
+
+                    tmpActivity.kudos = array[i]["kudos_count"].as<uint32_t>();
+                    tmpActivity.timestamp = activityStartTime;
+                    activityUpdated = lastActivityUpdated(tmpActivity);
+                    newActivityUploaded = activityUpdated;
                     if (activityStartTime == lastActivity.timestamp)
                     {
                         continue;
                     }
+
                     lastActivity.timestamp = activityStartTime;
                 }
                 if (activityStartTime - 1 == lastDayPopulate || prevLastActivityTimestamp == activityStartTime || activityId == lastActivityId)
@@ -213,7 +241,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                     continue;
                 }
 
-                newActivity = true;
+                newActivityUploaded = true;
                 int utcOffset = array[i]["utc_offset"].as<int>();
                 if (activityStartTime /*+ utcOffset*/ > lastDayPopulate)
                 {
@@ -263,9 +291,81 @@ int8_t getLastActivitieDist(time_t start, time_t end)
         Serial.println("OHHH");
         ret = -3;
     }
-    esp_task_wdt_reset();
+    // esp_task_wdt_reset();
     http.end();
     return ret;
+}
+
+bool lastActivityUpdated(TsActivity newActivity)
+{
+    bool l_ret = false;
+    if (lastActivity.timestamp != newActivity.timestamp)
+    {
+        Serial.println("lastActivityUpdated() : timestamp changed");
+        l_ret = true;
+        lastActivity.timestamp = newActivity.timestamp;
+    }
+    if (lastActivity.dist != newActivity.dist)
+    {
+        Serial.println("lastActivityUpdated() : dist changed");
+        Serial.print("dist : ");
+        Serial.print(lastActivity.dist);
+        Serial.print(" -> ");
+        Serial.println(newActivity.dist);
+        l_ret = true;
+        lastActivity.dist = newActivity.dist;
+    }
+    if (lastActivity.deniv != newActivity.deniv)
+    {
+        Serial.println("lastActivityUpdated() : deniv changed");
+        l_ret = true;
+        lastActivity.deniv = newActivity.deniv;
+    }
+    if (lastActivity.time != newActivity.time)
+    {
+        Serial.println("lastActivityUpdated() : time changed");
+        l_ret = true;
+        lastActivity.time = newActivity.time;
+    }
+    if (lastActivity.kudos != newActivity.kudos)
+    {
+        Serial.println("lastActivityUpdated() : kudos changed");
+        l_ret = true;
+        lastActivity.kudos = newActivity.kudos;
+    }
+    if (lastActivity.polyline != newActivity.polyline)
+    {
+        Serial.println("lastActivityUpdated() : polyline changed");
+        l_ret = true;
+        lastActivity.polyline = newActivity.polyline;
+    }
+    if (lastActivity.type != newActivity.type)
+    {
+        Serial.println("lastActivityUpdated() : type changed");
+        l_ret = true;
+        lastActivity.type = newActivity.type;
+    }
+    if (memcmp(lastActivity.name, newActivity.name, MAX_NAME_LENGTH) != 0)
+    {
+        Serial.println("lastActivityUpdated() : name changed");
+        l_ret = true;
+        memcpy(lastActivity.name, newActivity.name, MAX_NAME_LENGTH);
+        // lastActivity.name = newActivity.name;
+    }
+    if (lastActivity.isFilled != newActivity.isFilled)
+    {
+        Serial.println("lastActivityUpdated() : isFilled changed");
+        l_ret = true;
+        lastActivity.isFilled = newActivity.isFilled;
+    }
+    if (hasBeenRefreshed)
+    {
+        l_ret = true;
+        hasBeenRefreshed = false;
+    }
+    Serial.print("lastActivityUpdated() : ");
+    Serial.println(l_ret);
+    return l_ret;
 }
 
 time_t timeStringToTimestamp(char *str)
@@ -308,7 +408,7 @@ void printDateTime(struct tm *dateStruct)
 
 void populateDB(void)
 {
-
+    initDB();
     Serial.print("LastDayPopulate at start : ");
     Serial.println(lastDayPopulate);
 
@@ -357,7 +457,7 @@ void populateDB(void)
 
     getYearActivities(startTimestamp, endTimestamp);
     // save loopYear
-    if (newActivity)
+    if (newActivityUploaded)
     {
         preferences.begin("stravaDB", false);
         preferences.clear();
@@ -511,31 +611,89 @@ void newYearBegin()
     // memset(thisYear, 0, sizeof(thisYear));
 }
 
-void newMonthBegin(uint8_t prevMonth, struct tm tm)
+void newMonthBegin()
 {
-    preferences.begin("stravaDB", false);
-    preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
-    lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
-    lastActivityId = preferences.getLong64("lastActivityId", 0);
+    initDB();
 
-    // for (uint8_t j = prevMonth; j < )
-    Serial.print("erasing month ");
-    Serial.println(tm.tm_mon);
-    for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
+    struct tm tm;
+    if (getLocalTime(&tm))
     {
-        Serial.print(i);
-        Serial.println(" erased");
-        memset(&loopYear[i], 0, sizeof(TsDistDay));
+
+        // for (uint8_t j = prevMonth; j < )
+        Serial.print("erasing month ");
+        Serial.println(tm.tm_mon);
+        for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
+        {
+            Serial.print(i);
+            Serial.println(" erased");
+            memset(&loopYear[i], 0, sizeof(TsDistDay));
+        }
+        preferences.begin("stravaDB", false);
+        preferences.clear();
+        preferences.putLong("lastDayPopulate", lastDayPopulate);
+        preferences.putLong64("lastActivityId", lastActivityId);
+        preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+        preferences.end();
     }
-    preferences.clear();
-    preferences.putLong("lastDayPopulate", lastDayPopulate);
-    preferences.putLong64("lastActivityId", lastActivityId);
-    preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
-    preferences.end();
     // printDB(0);
 }
 
 TsActivity *getStravaLastActivity()
 {
     return &lastActivity;
+}
+
+void StravaTaskFunction(void *parameter)
+{
+    TeStravaMessage msg;
+    TeDisplayMessage messageDisplay;
+    uint8_t *taskCnt = (uint8_t *)parameter;
+    struct tm timeinfo3;
+    while (true)
+    {
+        msg = STRAVA_MESSAGE_NONE;
+        if (xQueueReceive(xQueueStrava, &(msg), 0) == pdPASS)
+        {
+            Serial.print("Queue strava message received :");
+            (*taskCnt)++;
+            switch (msg)
+            {
+            case STRAVA_MESSAGE_NEW_MONTH:
+                Serial.println("new month begin");
+                newMonthBegin();
+                break;
+            case STRAVA_MESSAGE_POPULATE:
+                Serial.println("populate");
+                if (connectWifi(10000))
+                {
+                    // esp_task_wdt_reset();
+                    populateDB();
+                    // esp_task_wdt_reset();
+                }
+                if (newActivityUploaded)
+                {
+                    messageDisplay = DISPLAY_MESSAGE_NEW_ACTIVITY;
+                    xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                    newActivityUploaded = false;
+                }
+                getLocalTime(&timeinfo3);
+                if (timeinfo3.tm_hour % 2 == 0)
+                {
+                    messageDisplay = DISPLAY_MESSAGE_MONTHS;
+                    xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                }
+                else if (timeinfo3.tm_hour % 2 == 1)
+                {
+                    messageDisplay = DISPLAY_MESSAGE_WEEKS;
+                    xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                }
+                break;
+            default:
+                break;
+            }
+            (*taskCnt)--;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    vTaskDelete(NULL);
 }

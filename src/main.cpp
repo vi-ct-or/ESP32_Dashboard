@@ -13,8 +13,16 @@
 
 #define NB_MENU 5
 #define uS_TO_S_FACTOR 1000000ULL
+#define mS_TO_S_FACTOR 1000ULL
 #define DEEPSLEEP_TIME 50
 #define WDT_TIMEOUT 60
+
+typedef enum eTimeSource
+{
+  TIME_SOURCE_NONE,
+  TIME_SOURCE_GPS,
+  TIME_SOURCE_NTP,
+} TeTimeSource;
 
 /****** NTP settings ******/
 const char *NTP_SERVER = "pool.ntp.org";
@@ -25,14 +33,23 @@ RTC_DATA_ATTR uint8_t prevMinute;
 RTC_DATA_ATTR uint8_t prevHour;
 RTC_DATA_ATTR uint8_t prevDay;
 RTC_DATA_ATTR uint8_t prevMonth;
+RTC_DATA_ATTR TeTimeSource timeSource = TIME_SOURCE_NONE;
+
+TaskHandle_t TimeTaskHandle, DisplayTaskHandle, StravaTaskHandle;
+TickType_t TimeTaskDelay = pdMS_TO_TICKS(100);
+
+void TimeTaskFunction(void *parameter);
+void displayTaskFunction(void *parameter);
+bool readyToGoToSleep();
 
 uint16_t prevYear;
 Preferences preferences2;
 const int buttonPin = 0;
 esp_sleep_wakeup_cause_t wakeup_reason;
 bool goToSleep = false;
-RTC_DATA_ATTR bool doSyncNtp = false;
 bool GPSSync = false;
+
+uint8_t taskFinishedCnt = 0;
 
 // static void IRAM_ATTR buttonInterrupt(void);
 void syncNTP();
@@ -49,8 +66,8 @@ void setup()
   //   ;
   Serial.println("START");
 
-  esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
-  esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
+  // esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
+  // esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
 
   pinMode(2, OUTPUT);
   //  digitalWrite(2, HIGH);
@@ -59,36 +76,9 @@ void setup()
   wakeup_reason = esp_sleep_get_wakeup_cause();
   // attachInterrupt(buttonPin, buttonInterrupt, FALLING);
 
-  initWifi();
+  // initGpsTime();
   initDisplay();
-  initGpsTime();
 
-  if (setGPSTime())
-  {
-    setenv("TZ", TZ_INFO, 1);
-    tzset();
-    Serial.println("Set By GPS");
-    GPSSync = true;
-  }
-  else
-  {
-    if (!getLocalTime(&timeinfo1))
-    {
-      connectWifi(10000);
-    }
-    configTzTime(TZ_INFO, NTP_SERVER);
-    if (doSyncNtp && connectWifi(10000))
-    {
-      sntp_restart();
-      doSyncNtp = false;
-    }
-  }
-  while (!getLocalTime(&timeinfo1))
-  {
-    connectWifi(10000);
-    delay(1000);
-    esp_task_wdt_reset();
-  }
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
   {
     // first boot
@@ -98,13 +88,55 @@ void setup()
     // preferences2.begin("stravaDB", false);
     // preferences2.clear();
     // preferences2.end();
+    // if (setGPSTime())
+    // {
+    //   setenv("TZ", TZ_INFO, 1);
+    //   tzset();
+    //   Serial.println("Set By GPS");
+    //   timeSource = TIME_SOURCE_GPS;
+    //   GPSSync = true;
+    // }
+    // else
+    // {
+    if (!getLocalTime(&timeinfo1))
+    {
+      connectWifi(10000);
+    }
+    configTzTime(TZ_INFO, NTP_SERVER);
+    // if (doSyncNtp && connectWifi(10000))
+    // {
+    //   sntp_restart();
+    // }
+    timeSource = TIME_SOURCE_NTP;
+    // }
+    while (!getLocalTime(&timeinfo1))
+    {
+      // connectWifi(10000);
+      delay(1000);
+      Serial.println("wait getLocalTime");
+      // esp_task_wdt_reset();
+    }
+
+    displayTemplate();
 
     if (connectWifi(10000))
     {
       updateFW();
     }
 
-    esp_task_wdt_reset();
+    // init lastActivity to zero
+    TsActivity *lastActivity = getStravaLastActivity();
+    lastActivity->isFilled = true;
+    lastActivity->dist = 0;
+    lastActivity->deniv = 0;
+    lastActivity->time = 0;
+    lastActivity->timestamp = 0;
+    lastActivity->type = ACTIVITY_TYPE_UNKNOWN;
+    memset(lastActivity->name, 0, MAX_NAME_LENGTH);
+    lastActivity->polyline = "";
+    lastActivity->kudos = 0;
+
+    // esp_task_wdt_reset();
 
     prevMinute = 255;
     prevHour = 255;
@@ -121,139 +153,65 @@ void setup()
   }
   else
   {
+    // if (timeSource == TIME_SOURCE_GPS && setGPSTime())
+    // {
+
+    //   setenv("TZ", TZ_INFO, 1);
+    //   tzset();
+    //   Serial.println("Set By GPS");
+    //   timeSource = TIME_SOURCE_GPS;
+    //   GPSSync = true;
+    // }
+    // else
+    // {
+    //   timeSource = TIME_SOURCE_NTP;
+    // }
+    if (timeSource == TIME_SOURCE_NTP)
+    {
+      configTzTime(TZ_INFO, NTP_SERVER);
+    }
+    initDisplay();
     // Serial.println("wakeup after deepsleep timer");
   }
-  displayTemplate();
   // displayTimeSync(GPSSync);
-  esp_task_wdt_reset();
+  // esp_task_wdt_reset();
+
+  xSemaphore = xSemaphoreCreateCounting(3, 0);
+
+  xQueueDisplay = xQueueCreate(10, sizeof(TeDisplayMessage));
+  xQueueStrava = xQueueCreate(10, sizeof(TeStravaMessage));
+
+  // start task
+  xTaskCreatePinnedToCore(
+      TimeTaskFunction, /* Function to implement the task */
+      "TimeTask",       /* Name of the task */
+      8192,             /* Stack size in words */
+      NULL,             /* Task input parameter */
+      5,                /* Priority of the task */
+      &TimeTaskHandle,  /* Task handle. */
+      0);               /* Core where the task should run */
+
+  xTaskCreatePinnedToCore(
+      displayTaskFunction, /* Function to implement the task */
+      "DisplayTask",       /* Name of the task */
+      8192,                /* Stack size in words */
+      &taskFinishedCnt,    /* Task input parameter */
+      5,                   /* Priority of the task */
+      &DisplayTaskHandle,  /* Task handle. */
+      1);                  /* Core where the task should run */
+  xTaskCreatePinnedToCore(
+      StravaTaskFunction, /* Function to implement the task */
+      "StravaTask",       /* Name of the task */
+      8192,               /* Stack size in words */
+      &taskFinishedCnt,   /* Task input parameter */
+      5,                  /* Priority of the task */
+      &StravaTaskHandle,  /* Task handle. */
+      1);                 /* Core where the task should run */
 }
 
 void loop()
 {
-  // update time
-  if (getLocalTime(&timeinfo1))
-  {
-    if (timeinfo1.tm_min != prevMinute || isRefreshed)
-    {
-      // Serial.println("update minute");
-      if (timeinfo1.tm_min != prevMinute)
-      {
-        prevMinute = timeinfo1.tm_min;
-      }
-      displayTime(&timeinfo1);
-      Serial.print(timeinfo1.tm_hour);
-      Serial.print(":");
-      Serial.println(timeinfo1.tm_min);
-      if (timeinfo1.tm_min == 59 || timeinfo1.tm_min == 14 || timeinfo1.tm_min == 29 || timeinfo1.tm_min == 44)
-      {
-        doSyncNtp = true;
-      }
-      if ((timeinfo1.tm_hour == 10) && timeinfo1.tm_min == 59 && timeinfo1.tm_sec <= 5)
-      {
-        refresh = true; // refresh screen next time
-      }
-      goToSleep = true;
-    }
-    if (timeinfo1.tm_mday != prevDay || isRefreshed)
-    {
-      // Serial.println("update day");
-      if (timeinfo1.tm_mday != prevDay)
-      {
-        prevDay = timeinfo1.tm_mday;
-      }
-      displayDate(&timeinfo1);
-    }
-    if (timeinfo1.tm_mon != prevMonth)
-    {
-      // Serial.println("update month");
-      newMonthBegin(prevMonth, timeinfo1);
-      preferences2.begin("date", false);
-      prevMonth = timeinfo1.tm_mon;
-      preferences2.putUShort("prevMonth", prevMonth);
-      preferences2.end();
-    }
-    if (timeinfo1.tm_hour != prevHour || isRefreshed)
-    {
-      // Serial.println("update hour");
-      if (timeinfo1.tm_hour == 10)
-      {
-        if (connectWifi(10000))
-        {
-          updateFW();
-        }
-      }
-      if (timeinfo1.tm_hour != prevHour)
-      {
-        prevHour = timeinfo1.tm_hour;
-      }
-      initDB();
-      if (connectWifi(10000))
-      {
-        esp_task_wdt_reset();
-        populateDB();
-        esp_task_wdt_reset();
-      }
-      if (newActivity || isRefreshed)
-      {
-        displayStravaAllYear(&timeinfo1);
-        displayStravaPolyline();
-        newActivity = false;
-      }
-      displayLastActivity();
-      if (timeinfo1.tm_hour % 2 == 0)
-      {
-        displayStravaMonths(&timeinfo1);
-      }
-      else if (timeinfo1.tm_hour % 2 == 1)
-      {
-        displayStravaWeeks(&timeinfo1);
-      }
-      isRefreshed = false;
-      // prevMenu = UINT8_MAX; // to refresh current menu with new activity
-    }
-  }
-  if (goToSleep)
-  {
-    esp_task_wdt_reset();
-    uint8_t sleepTime = 53;
-    if (refresh || doSyncNtp)
-    {
-      sleepTime = 48;
-    }
-    getLocalTime(&timeinfo1);
-    if (timeinfo1.tm_sec < sleepTime - 1 && timeinfo1.tm_min == prevMinute)
-    {
-      esp_sleep_enable_timer_wakeup((sleepTime - timeinfo1.tm_sec) * uS_TO_S_FACTOR);
-      // Serial.print("Going to sleep for ");
-      // Serial.print(sleepTime - timeinfo1.tm_sec);
-      // Serial.println("seconds");
-      Serial.flush();
-      // digitalWrite(2, LOW);
-      esp_deep_sleep_start();
-    }
-    goToSleep = false;
-  }
-
-  esp_task_wdt_reset();
-  delay(100);
 }
-
-// static void IRAM_ATTR buttonInterrupt(void)
-// {
-//   // static unsigned long last_interrupt_time = 0;
-//   // unsigned long interrupt_time = millis();
-//   // // If interrupts come faster than 500ms, assume it's a bounce and ignore
-//   // if ((interrupt_time - last_interrupt_time > 500) || last_interrupt_time > interrupt_time)
-//   // {
-
-//   //   currentMenu++;
-//   //   if (currentMenu >= NB_MENU)
-//   //   {
-//   //     currentMenu = 0;
-//   //   }
-//   //   last_interrupt_time = interrupt_time;
-//   // }
-// }
 
 void syncNTP()
 {
@@ -263,5 +221,135 @@ void syncNTP()
 
 void cbSyncTime(struct timeval *tv)
 { // callback function to show when NTP was synchronized
-  // Serial.println("callback NTP time now synched");
+  Serial.println("callback NTP time now synched");
+  setRtcTime();
+  goToSleep = true;
+}
+
+void TimeTaskFunction(void *parameter)
+{
+  unsigned long timeToTimeTask = millis();
+  Serial.print("TimeTaskFunction started at ");
+  Serial.println(timeToTimeTask);
+  TeDisplayMessage queueDisplayMessage;
+  TeStravaMessage queueStravaMessage;
+  while (true)
+  {
+    queueDisplayMessage = DISPLAY_MESSAGE_NONE;
+    queueStravaMessage = STRAVA_MESSAGE_NONE;
+
+    if (getLocalTime(&timeinfo1))
+    {
+      if (timeinfo1.tm_min != prevMinute)
+      {
+        Serial.println("update minute");
+        prevMinute = timeinfo1.tm_min;
+        // displayTime(&timeinfo1);
+        queueDisplayMessage = DISPLAY_MESSAGE_TIME;
+        xQueueSendToFront(xQueueDisplay, &queueDisplayMessage, 0);
+        Serial.print(timeinfo1.tm_hour);
+        Serial.print(":");
+        Serial.println(timeinfo1.tm_min);
+        goToSleep = true;
+        if (timeinfo1.tm_min == 00 /*|| timeinfo1.tm_min == 14 || timeinfo1.tm_min == 29 || timeinfo1.tm_min == 44*/)
+        {
+          if (timeSource == TIME_SOURCE_NTP && connectWifi(10000))
+          {
+            configTzTime(TZ_INFO, NTP_SERVER);
+            sntp_restart();
+            Serial.println("sntp synchro...");
+            goToSleep = false;
+          }
+        }
+        if ((timeinfo1.tm_hour == 1) && timeinfo1.tm_min == 59 && timeinfo1.tm_sec <= 5)
+        {
+          queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
+          xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        }
+        if ((timeinfo1.tm_hour == 13) && timeinfo1.tm_min == 55 && timeinfo1.tm_sec <= 5)
+        {
+          queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
+          xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        }
+      }
+      if (timeinfo1.tm_mday != prevDay)
+      {
+        // Serial.println("update day");
+
+        prevDay = timeinfo1.tm_mday;
+
+        queueDisplayMessage = DISPLAY_MESSAGE_DATE;
+        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        // displayDate(&timeinfo1);
+      }
+      if (timeinfo1.tm_mon != prevMonth)
+      {
+        // Serial.println("update month");
+        // newMonthBegin(prevMonth, timeinfo1);
+        queueStravaMessage = STRAVA_MESSAGE_NEW_MONTH;
+        xQueueSend(xQueueStrava, &queueStravaMessage, 0);
+
+        preferences2.begin("date", false);
+        prevMonth = timeinfo1.tm_mon;
+        preferences2.putUShort("prevMonth", prevMonth);
+        preferences2.end();
+      }
+      if (timeinfo1.tm_hour != prevHour)
+      {
+        Serial.println("update hour");
+        prevHour = timeinfo1.tm_hour;
+
+        // here populate
+        queueStravaMessage = STRAVA_MESSAGE_POPULATE;
+        xQueueSend(xQueueStrava, &queueStravaMessage, 0);
+      }
+    }
+
+    if (timeinfo1.tm_sec >= 58)
+    {
+      goToSleep = false;
+    }
+    if (goToSleep && readyToGoToSleep())
+    {
+
+      // esp_task_wdt_reset();
+      uint32_t sleepTime = (60 * uS_TO_S_FACTOR) - ((timeToTimeTask + 100) * mS_TO_S_FACTOR);
+
+      if (timeSource == TIME_SOURCE_GPS)
+      {
+        sleepTime = 54;
+      }
+      adjustLocalTimeFromRtc();
+      getLocalTime(&timeinfo1);
+      if (timeinfo1.tm_sec < sleepTime - 1 && timeinfo1.tm_min == prevMinute)
+      {
+        esp_sleep_enable_timer_wakeup(sleepTime - (timeinfo1.tm_sec * uS_TO_S_FACTOR));
+        Serial.print("Going to sleep for ");
+        Serial.print(sleepTime - (timeinfo1.tm_sec * uS_TO_S_FACTOR));
+        Serial.println(" us");
+        Serial.flush();
+        // digitalWrite(2, LOW);
+        esp_deep_sleep_start();
+      }
+    }
+
+    // esp_task_wdt_reset();
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+  vTaskDelete(NULL);
+}
+
+bool readyToGoToSleep()
+{
+  bool l_ret = false;
+  if (uxQueueMessagesWaiting(xQueueStrava) == 0 && uxQueueMessagesWaiting(xQueueDisplay) == 0 && taskFinishedCnt == 0)
+  {
+    Serial.println("Ready to go to sleep !");
+    l_ret = true;
+  }
+  else
+  {
+    // Serial.println("NOT ready to go to sleep !");
+  }
+  return l_ret;
 }

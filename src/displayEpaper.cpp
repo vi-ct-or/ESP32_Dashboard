@@ -7,6 +7,7 @@
 #include "strava.h"
 #include "polyline.h"
 #include "logo.h"
+#include <sys/time.h>
 
 #include "displayEpaper.h"
 
@@ -42,10 +43,10 @@ void getYearAndWeek(tm TM, int &YYYY, int &WW);
 std::string speedToPace(double speedKmH);
 std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine);
 
-RTC_DATA_ATTR bool refresh = true;
-RTC_DATA_ATTR bool isRefreshed = false;
 RTC_DATA_ATTR bool prevGPSSync = false;
 RTC_DATA_ATTR bool firstTime = true;
+RTC_DATA_ATTR bool hasBeenRefreshed = false;
+QueueHandle_t xQueueDisplay;
 
 void initDisplay(void)
 {
@@ -61,12 +62,8 @@ void initDisplay(void)
 
 void displayTemplate()
 {
-    if (refresh)
-    {
-        display.drawPaged(drawFull, 0);
-        refresh = false;
-        isRefreshed = true;
-    }
+
+    display.drawPaged(drawFull, 0);
     display.hibernate();
 }
 
@@ -83,6 +80,7 @@ void displayDate(struct tm *now)
 
 void displayStravaAllYear(struct tm *now)
 {
+    initDB();
     display.drawPaged(drawYearTitle, (const void *)now);
     // display.drawPaged(drawYearStr, 0);
     display.drawPaged(drawYearDistance, 0);
@@ -93,12 +91,14 @@ void displayStravaAllYear(struct tm *now)
 
 void displayStravaMonths(struct tm *now)
 {
+    initDB();
     display.drawPaged(drawLastTwelveMonths, (const void *)now);
     display.hibernate();
 }
 
 void displayStravaWeeks(struct tm *now)
 {
+    initDB();
     display.drawPaged(drawWeeks, (const void *)now);
     display.hibernate();
 }
@@ -542,6 +542,7 @@ void drawStravaPolyline(const void *pv)
         return;
     }
     Serial.println("lastAct not NULL");
+    display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
     if (!lastAct->polyline.empty())
     {
         decode(lastAct->polyline.c_str(), lastAct->polyline.size());
@@ -575,7 +576,7 @@ void drawStravaPolyline(const void *pv)
         // Serial.print("offsetH = ");
         // Serial.println(offsetH);
         int x, y, prevx = -1, prevy = -1;
-        display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
+
         // display.drawRect(150, 249, SQUARE_SIZE, SQUARE_SIZE + 1, GxEPD_BLACK);
         for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
         {
@@ -610,7 +611,7 @@ void drawLastActivity(const void *pv)
     uint8_t heightLetter2 = 16;
     float speed = 0.0;
 
-    name = addNewLines(lastActivity->name, 11, 3, &lineNbTitle);
+    name = addNewLines(std::string(lastActivity->name), 11, 3, &lineNbTitle);
     // name = lastActivity->name; // name
     //  if (name.size() > 10)
     //  {
@@ -1142,4 +1143,105 @@ std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uin
 
     *nbLine = currentNbLine;
     return result;
+}
+
+void displayTaskFunction(void *parameter)
+{
+    TeDisplayMessage msg;
+    struct tm tm;
+    uint8_t *taskCnt = (uint8_t *)parameter;
+    while (true)
+    {
+        msg = DISPLAY_MESSAGE_NONE;
+
+        if (xQueueReceive(xQueueDisplay, &(msg), 0) == pdPASS)
+        {
+            (*taskCnt)++;
+            Serial.print("Queue display message received : ");
+            switch (msg)
+            {
+            case DISPLAY_MESSAGE_TIME:
+                Serial.println("time");
+                if (getLocalTime(&tm))
+                {
+                    displayTime(&tm);
+                }
+                break;
+            case DISPLAY_MESSAGE_DATE:
+                Serial.println("date");
+                if (getLocalTime(&tm))
+                {
+                    displayDate(&tm);
+                }
+                break;
+            case DISPLAY_MESSAGE_POLYLINE:
+                Serial.println("polyline");
+                displayStravaPolyline();
+                break;
+            case DISPLAY_MESSAGE_LAST_ACTIVITY:
+                Serial.println("last act");
+                displayLastActivity();
+                break;
+            case DISPLAY_MESSAGE_MONTHS:
+                Serial.println("month");
+                if (getLocalTime(&tm))
+                {
+                    displayStravaMonths(&tm);
+                }
+                break;
+            case DISPLAY_MESSAGE_WEEKS:
+                Serial.println("week");
+                if (getLocalTime(&tm))
+                {
+                    displayStravaWeeks(&tm);
+                }
+                break;
+            case DISPLAY_MESSAGE_TOTAL_YEAR:
+                Serial.println("year");
+                if (getLocalTime(&tm))
+                {
+                    displayStravaAllYear(&tm);
+                }
+                break;
+            case DISPLAY_MESSAGE_REFRESH:
+                Serial.println("refresh");
+                xQueueReset(xQueueDisplay);
+                msg = DISPLAY_MESSAGE_TEMPLATE;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_TIME;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_DATE;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_TOTAL_YEAR;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_WEEKS;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_LAST_ACTIVITY;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_POLYLINE;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                hasBeenRefreshed = true;
+                break;
+            case DISPLAY_MESSAGE_TEMPLATE:
+                Serial.println("template");
+                displayTemplate();
+                break;
+            case DISPLAY_MESSAGE_NEW_ACTIVITY:
+                Serial.println("new activity");
+                msg = DISPLAY_MESSAGE_TOTAL_YEAR;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_LAST_ACTIVITY;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                msg = DISPLAY_MESSAGE_POLYLINE;
+                xQueueSend(xQueueDisplay, &msg, 0);
+                break;
+            default:
+                Serial.println("unknown msg");
+                break;
+            }
+            (*taskCnt)--;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    vTaskDelete(NULL);
 }
