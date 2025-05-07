@@ -221,8 +221,8 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                     tmpActivity.dist = (uint16_t)(array[i]["distance"].as<float>() / 10.0);
 
                     std::string tmpName = array[i]["name"].as<std::string>();
-                    memcpy(tmpActivity.name, tmpName.c_str(), tmpName.size() + 1);
-                    tmpActivity.name[tmpName.size()] = '\0';
+                    memcpy(tmpActivity.name, tmpName.c_str(), min((int)tmpName.size(), MAX_NAME_LENGTH - 1));
+                    tmpActivity.name[min((int)tmpName.size(), MAX_NAME_LENGTH - 1)] = '\0';
 
                     tmpActivity.kudos = array[i]["kudos_count"].as<uint32_t>();
                     tmpActivity.timestamp = activityStartTime;
