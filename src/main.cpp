@@ -266,11 +266,6 @@ void TimeTaskFunction(void *parameter)
           queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
           xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
         }
-        if ((timeinfo1.tm_hour == 13) && timeinfo1.tm_min == 55 && timeinfo1.tm_sec <= 5)
-        {
-          queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
-          xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
-        }
       }
       if (timeinfo1.tm_mday != prevDay)
       {
