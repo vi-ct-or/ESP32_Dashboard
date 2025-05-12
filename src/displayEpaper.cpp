@@ -42,6 +42,7 @@ bool isLeap(int year);
 void getYearAndWeek(tm TM, int &YYYY, int &WW);
 std::string speedToPace(double speedKmH);
 std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine);
+std::string replaceSpecialCharacters(const char *inputStr);
 
 RTC_DATA_ATTR bool prevGPSSync = false;
 RTC_DATA_ATTR bool firstTime = true;
@@ -252,7 +253,9 @@ void drawDateStr(const void *pv)
         month = "Janvier";
         break;
     case 1:
-        month = "Fevrier";
+        month = "F";
+        month += (char)0xE9;
+        month += "vrier";
         break;
     case 2:
         month = "Mars";
@@ -270,7 +273,9 @@ void drawDateStr(const void *pv)
         month = "Juillet";
         break;
     case 7:
-        month = "Aout";
+        month = "Ao";
+        month += (char)0xFB;
+        month += "t";
         break;
     case 8:
         month = "Septembre";
@@ -282,7 +287,9 @@ void drawDateStr(const void *pv)
         month = "Novembre";
         break;
     case 11:
-        month = "Decembre";
+        month = "D";
+        month += (char)0xE9;
+        month += "cembre";
         break;
 
     default:
@@ -290,40 +297,67 @@ void drawDateStr(const void *pv)
     }
 
     uint8_t maxLen = max(day.size(), month.size());
-    if (day.size() < month.size())
-    {
-        day.insert(0, (month.size() - day.size()) / 2, ' ');
-        day.insert(day.size(), (month.size() - day.size()) / 2, ' ');
-    }
-    else if (day.size() > month.size())
-    {
-        month.insert(0, (day.size() - month.size()) / 2, ' ');
-        month.insert(month.size(), (day.size() - month.size()) / 2, ' ');
-    }
+    // if (day.size() < month.size())
+    // {
+    //     day.insert(0, (month.size() - day.size()) / 2, ' ');
+    //     day.insert(day.size(), (month.size() - day.size()) / 2, ' ');
+    // }
+    // else if (day.size() > month.size())
+    // {
+    //     month.insert(0, (day.size() - month.size()) / 2, ' ');
+    //     month.insert(month.size(), (day.size() - month.size()) / 2, ' ');
+    // }
 
     nb = std::to_string(now->tm_mday);
-    if (now->tm_mday < 10)
-    {
-        nb.insert(0, 1, '0');
-    }
-    nb.insert(0, (maxLen - 2) / 2, ' ');
-    nb.insert(nb.size(), (maxLen - 2) / 2, ' ');
+    // if (now->tm_mday < 10)
+    // {
+    //     nb.insert(0, 1, '0');
+    // }
+    // nb.insert(0, (maxLen - 2) / 2, ' ');
+    // nb.insert(nb.size(), (maxLen - 2) / 2, ' ');
 
-    dateStr = day;
-    dateStr += "\n";
-    dateStr += nb;
-    dateStr += "\n";
-    dateStr += month;
-    // drawText(1, 5, dateStr.c_str());
-    //  simulate max lenght to erase correctly previous day/month if it was longer
-    int16_t x1, y1;
-    uint16_t w, h;
-    std::string maxDateLenght = "Vendredi\n31\nSeptembre";
+    // dateStr = day;
+    // dateStr += "\n";
+    // dateStr += nb;
+    // dateStr += "\n";
+    // dateStr += month;
+    // // drawText(1, 5, dateStr.c_str());
+    // //  simulate max lenght to erase correctly previous day/month if it was longer
+    // int16_t x1, y1;
+    // uint16_t w, h;
+    // std::string maxDateLenght = "Vendredi\n31\nSeptembre";
+    // display.setTextSize(2);
+    // display.getTextBounds(maxDateLenght.c_str(), 1, 5, &x1, &y1, &w, &h);
+    // display.setPartialWindow(x1, y1, w, h);
+    // display.setCursor(1, 5);
+    // display.print(dateStr.c_str());
+
     display.setTextSize(2);
-    display.getTextBounds(maxDateLenght.c_str(), 1, 5, &x1, &y1, &w, &h);
-    display.setPartialWindow(x1, y1, w, h);
-    display.setCursor(1, 5);
-    display.print(dateStr.c_str());
+    display.setPartialWindow(0, 0, 120, 60);
+    uint8_t x = 0;
+    // day
+    x = 113 / 2 - day.size() * 6;
+    display.setCursor(x, 0);
+    display.print(day.c_str());
+    // nb
+    if (nb == "1")
+    {
+        x = 113 / 2 - nb.size() * 6 - 6;
+        display.setCursor(55, 18);
+        display.setTextSize(1);
+        display.print("er");
+        display.setTextSize(2);
+    }
+    else
+    {
+        x = 113 / 2 - nb.size() * 6;
+    }
+    display.setCursor(x, 20);
+    display.print(nb.c_str());
+    // month
+    x = 113 / 2 - month.size() * 6;
+    display.setCursor(x, 40);
+    display.print(month.c_str());
 }
 
 void drawYearStr(const void *pv)
@@ -341,11 +375,6 @@ void drawYearStr(const void *pv)
     deniv = std::to_string(getTotal(ACTIVITY_TYPE_BIKE, DATA_TYPE_DENIV, 0, currentDay));
     deniv.insert(0, 6 - deniv.size(), ' ');
     yearStravaBike = dist;
-    // yearStravaBike += "km ";
-    // yearStravaBike += time;
-    // yearStravaBike += "h ";
-    // yearStravaBike += deniv;
-    // yearStravaBike += "m";
     int16_t x, y;
     uint16_t w, h;
     // dist bike
@@ -359,37 +388,11 @@ void drawYearStr(const void *pv)
     display.setCursor(120, 113);
     display.print(time.c_str());
     // // deniv bike
-    // display.getTextBounds(deniv.c_str(), 220, 105, &x, &y, &w, &h);
-    // display.setPartialWindow(x, y, w, h);
-    // display.print(deniv.c_str());
 
     // run
     dist = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DISTANCE, 0, currentDay) / 10000);
     dist.insert(0, 5 - dist.size(), ' ');
-    // time = time = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_TIME, 0, currentDay) / 3600);
-    // time.insert(0, 3 - time.size(), ' ');
-    // deniv = std::to_string(getTotal(ACTIVITY_TYPE_RUN, DATA_TYPE_DENIV, 0, currentDay));
-    // deniv.insert(0, 6 - deniv.size(), ' ');
     yearStravaRun = dist;
-    // yearStravaRun += "km ";
-    // yearStravaRun += time;
-    // yearStravaRun += "h ";
-    // yearStravaRun += deniv;
-    // yearStravaRun += "m";
-
-    // int16_t x1b, y1b, x1r, y1r, x1, y1;
-    // uint16_t wb, hb, wr, hr, w, h;
-    // display.getTextBounds(yearStravaBike.c_str(), 50, 105, &x1b, &y1b, &wb, &hb);
-    // display.getTextBounds(yearStravaRun.c_str(), 50, 135, &x1r, &y1r, &wr, &hr);
-    // x1 = x1b; // bike is above run
-    // y1 = y1b; // bike is above run
-    // w = max(wb, wr);
-    // h = y1r + hr - y1b; // bike is above run
-    // display.setPartialWindow(x1, y1, w, h);
-    // display.setCursor(50, 105);
-    // display.print(yearStravaBike.c_str());
-    // display.setCursor(50, 135);
-    // display.print(yearStravaRun.c_str());
 }
 
 void drawYearDistance(const void *pv)
@@ -502,9 +505,12 @@ void drawYearTitle(const void *pv)
 void drawFull(const void *pv)
 {
     display.setFullWindow();
+
     display.setTextSize(1);
     display.setCursor(55, 90);
-    display.print("   Distance      Temps        Denivele");
+    std::string header = "   Distance      Temps        Denivel";
+    header += (char)0xE9;
+    display.print(header.c_str());
     display.drawBitmap(0, 100, bicycleBitMap, 42, 28, GxEPD_BLACK);
     display.drawBitmap(0, 100 + 30, runningShoeBitmap, 42, 28, GxEPD_BLACK);
     uint16_t y = 113;
@@ -610,8 +616,8 @@ void drawLastActivity(const void *pv)
     uint8_t lineNbTitle = 1;
     uint8_t heightLetter2 = 16;
     float speed = 0.0;
-
-    name = addNewLines(std::string(lastActivity->name), 11, 3, &lineNbTitle);
+    name = replaceSpecialCharacters(lastActivity->name);
+    name = addNewLines(name, 11, 3, &lineNbTitle);
     // name = lastActivity->name; // name
     //  if (name.size() > 10)
     //  {
@@ -1145,6 +1151,40 @@ std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uin
     return result;
 }
 
+std::string replaceSpecialCharacters(const char *inputStr)
+{
+    Serial.println("replaceSpecialCharacters");
+    String out = "";
+    uint8_t i = 0;
+
+    while (inputStr[i] != '\0' && i < MAX_NAME_LENGTH)
+    {
+        out += inputStr[i];
+        i++;
+    }
+    char myChar;
+    myChar = (char)0xE9;
+    out.replace("é", String(myChar));
+    myChar = (char)0xE8;
+    out.replace("è", String(myChar));
+    myChar = (char)0xEA;
+    out.replace("ê", String(myChar));
+    myChar = (char)0xE0;
+    out.replace("à", String(myChar));
+    myChar = (char)0xE7;
+    out.replace("ç", String(myChar));
+    myChar = (char)0xFB;
+    out.replace("û", String(myChar));
+    myChar = (char)0xF4;
+    out.replace("ô", String(myChar));
+
+    Serial.println();
+
+    std::string outStr = out.c_str();
+
+    return outStr;
+}
+
 void displayTaskFunction(void *parameter)
 {
     TeDisplayMessage msg;
@@ -1214,7 +1254,14 @@ void displayTaskFunction(void *parameter)
                 xQueueSend(xQueueDisplay, &msg, 0);
                 msg = DISPLAY_MESSAGE_TOTAL_YEAR;
                 xQueueSend(xQueueDisplay, &msg, 0);
-                msg = DISPLAY_MESSAGE_WEEKS;
+                if (getLocalTime(&tm) && tm.tm_min % 2 == 0)
+                {
+                    msg = DISPLAY_MESSAGE_MONTHS;
+                }
+                else
+                {
+                    msg = DISPLAY_MESSAGE_WEEKS;
+                }
                 xQueueSend(xQueueDisplay, &msg, 0);
                 msg = DISPLAY_MESSAGE_LAST_ACTIVITY;
                 xQueueSend(xQueueDisplay, &msg, 0);

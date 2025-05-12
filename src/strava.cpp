@@ -23,6 +23,7 @@ typedef struct sDistDay
 #define WEEK_IN_SECOND 604800U
 #define DAYS_BY_YEAR 366
 #define THIS_YEAR_OFFSET 366
+#define NB_LAST_ACTIVITIES 10
 
 const uint16_t monthOffset[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
 
@@ -31,7 +32,8 @@ const char activitiesUrl[] = "https://www.strava.com/api/v3/athlete/activities?"
 // TsDistDay thisYear[DAYS_BY_YEAR];
 // TsDistDay lastYear[DAYS_BY_YEAR];
 TsDistDay loopYear[DAYS_BY_YEAR];
-uint64_t lastActivitiesId[10];
+uint64_t lastActivitiesId[NB_LAST_ACTIVITIES];
+uint64_t tmpLastActivitiesId[NB_LAST_ACTIVITIES];
 time_t lastDayPopulate;
 uint64_t lastActivityId;
 struct tm timeinfo;
@@ -52,6 +54,8 @@ TeActivityType getActivityType(const char *str);
 void getYearActivities(time_t start, time_t end);
 void printDB(uint16_t nbDays);
 bool lastActivityUpdated(TsActivity newActivity);
+void addIdLastActivities(uint64_t id);
+bool isIdLastActivities(uint64_t id);
 
 void initDB()
 {
@@ -63,6 +67,16 @@ void initDB()
         lastActivityId = preferences.getLong64("lastActivityId", 0);
         lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
         preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
+        preferences.getBytes("prevActList", lastActivitiesId, sizeof(lastActivitiesId));
+
+        for (uint16_t i = 0; i < NB_LAST_ACTIVITIES; i++)
+        {
+            Serial.print("lastActivitiesId[");
+            Serial.print(i);
+            Serial.print("] = ");
+            Serial.println(lastActivitiesId[i]);
+        }
+
         preferences.end();
         isDBInit = true;
     }
@@ -206,6 +220,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 time_t activityStartTime = mktime(&tm);
                 time_t movingTime = array[i]["moving_time"].as<int>();
                 uint64_t activityId = array[i]["id"].as<uint64_t>();
+                addIdLastActivities(activityId);
                 Serial.print("activityId = ");
                 Serial.println(activityId);
                 Serial.print("activity start timestamp : ");
@@ -235,8 +250,10 @@ int8_t getLastActivitieDist(time_t start, time_t end)
 
                     lastActivity.timestamp = activityStartTime;
                 }
-                if (activityStartTime - 1 == lastDayPopulate || prevLastActivityTimestamp == activityStartTime || activityId == lastActivityId)
+                Serial.println(array[i]["name"].as<std::string>().c_str());
+                if (activityStartTime - 1 == lastDayPopulate || prevLastActivityTimestamp == activityStartTime || activityId == lastActivityId || isIdLastActivities(activityId) == true)
                 {
+                    Serial.println("already processed");
                     // dont process previous last activity, it was already accounted
                     continue;
                 }
@@ -278,6 +295,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 Serial.print(" km -> ");
                 Serial.println(array[i]["type"].as<const char *>());
             }
+            memcpy(lastActivitiesId, tmpLastActivitiesId, sizeof(tmpLastActivitiesId));
             ret = 0;
         }
     }
@@ -303,15 +321,10 @@ bool lastActivityUpdated(TsActivity newActivity)
     {
         Serial.println("lastActivityUpdated() : timestamp changed");
         l_ret = true;
-        lastActivity.timestamp = newActivity.timestamp;
+        // lastActivity.timestamp = newActivity.timestamp;
     }
     if (lastActivity.dist != newActivity.dist)
     {
-        Serial.println("lastActivityUpdated() : dist changed");
-        Serial.print("dist : ");
-        Serial.print(lastActivity.dist);
-        Serial.print(" -> ");
-        Serial.println(newActivity.dist);
         l_ret = true;
         lastActivity.dist = newActivity.dist;
     }
@@ -332,12 +345,6 @@ bool lastActivityUpdated(TsActivity newActivity)
         Serial.println("lastActivityUpdated() : kudos changed");
         l_ret = true;
         lastActivity.kudos = newActivity.kudos;
-    }
-    if (lastActivity.polyline != newActivity.polyline)
-    {
-        Serial.println("lastActivityUpdated() : polyline changed");
-        l_ret = true;
-        lastActivity.polyline = newActivity.polyline;
     }
     if (lastActivity.type != newActivity.type)
     {
@@ -414,8 +421,8 @@ void populateDB(void)
 
     // reset everything
     // lastDayPopulate = 0;
-    // lastDayPopulate = 1743398997;
-    // for (uint16_t i = 90; i < 91; i++)
+    // lastDayPopulate = 1746061295;
+    // for (uint16_t i = 121; i < 133; i++)
     // {
     //     loopYear[i].climbRun = 0;
     //     loopYear[i].timeRun = 0;
@@ -464,6 +471,7 @@ void populateDB(void)
         preferences.putLong("lastDayPopulate", lastDayPopulate);
         preferences.putLong64("lastActivityId", lastActivityId);
         preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+        preferences.putBytes("prevActList", lastActivitiesId, sizeof(lastActivitiesId));
         preferences.end();
         Serial.print("lastdaypopulate end : ");
         Serial.println(lastDayPopulate);
@@ -492,6 +500,7 @@ void getYearActivities(time_t start, time_t end)
         else
         {
             tmp = end;
+            start = tmp - WEEK_IN_SECOND;
         }
         ret = -1;
         while (ret != 0)
@@ -633,6 +642,7 @@ void newMonthBegin()
         preferences.putLong("lastDayPopulate", lastDayPopulate);
         preferences.putLong64("lastActivityId", lastActivityId);
         preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+        preferences.putBytes("prevActList", lastActivitiesId, sizeof(lastActivitiesId));
         preferences.end();
     }
     // printDB(0);
@@ -641,6 +651,29 @@ void newMonthBegin()
 TsActivity *getStravaLastActivity()
 {
     return &lastActivity;
+}
+
+void addIdLastActivities(uint64_t id)
+{
+    static uint8_t i = 0;
+    tmpLastActivitiesId[i] = id;
+    i++;
+    if (i >= NB_LAST_ACTIVITIES)
+    {
+        i = 0;
+    }
+}
+
+bool isIdLastActivities(uint64_t id)
+{
+    for (uint8_t i = 0; i < NB_LAST_ACTIVITIES; i++)
+    {
+        if (lastActivitiesId[i] == id)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void StravaTaskFunction(void *parameter)

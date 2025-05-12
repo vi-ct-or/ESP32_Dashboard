@@ -34,6 +34,7 @@ RTC_DATA_ATTR uint8_t prevHour;
 RTC_DATA_ATTR uint8_t prevDay;
 RTC_DATA_ATTR uint8_t prevMonth;
 RTC_DATA_ATTR TeTimeSource timeSource = TIME_SOURCE_NONE;
+RTC_DATA_ATTR uint8_t nextHourRefresh;
 
 TaskHandle_t TimeTaskHandle, DisplayTaskHandle, StravaTaskHandle;
 TickType_t TimeTaskDelay = pdMS_TO_TICKS(100);
@@ -84,6 +85,8 @@ void setup()
     // first boot
     // Serial.println("wakeup after reset");
     // Serial.println(wakeup_reason);
+
+    nextHourRefresh = 2;
 
     // preferences2.begin("stravaDB", false);
     // preferences2.clear();
@@ -261,10 +264,17 @@ void TimeTaskFunction(void *parameter)
             goToSleep = false;
           }
         }
-        if ((timeinfo1.tm_hour == 1) && timeinfo1.tm_min == 59 && timeinfo1.tm_sec <= 5)
+        if ((timeinfo1.tm_hour == nextHourRefresh) && timeinfo1.tm_min == 0 && timeinfo1.tm_sec <= 48)
         {
-          queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
-          xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+          if (connectWifi(10000))
+          {
+            queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
+            xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+          }
+          else
+          {
+            nextHourRefresh++;
+          }
         }
       }
       if (timeinfo1.tm_mday != prevDay)
