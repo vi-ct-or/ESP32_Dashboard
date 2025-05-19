@@ -1177,9 +1177,20 @@ std::string replaceSpecialCharacters(const char *inputStr)
     out.replace("û", String(myChar));
     myChar = (char)0xF4;
     out.replace("ô", String(myChar));
-
-    Serial.println();
-
+    out.replace("`", "'");
+    out.replace("‘", "'");
+    out.replace("’", "'");
+    out.replace("“", "\"");
+    out.replace("”", "\"");
+    out.replace("É", "E");
+    out.replace("À", "A");
+    out.replace("Â", "A");
+    out.replace("Ê", "E");
+    out.replace("Ô", "O");
+    out.replace("Î", "I");
+    out.replace("Û", "U");
+    out.replace("È", "E");
+    out.replace("Ç", "C");
     std::string outStr = out.c_str();
 
     return outStr;

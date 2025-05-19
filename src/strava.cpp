@@ -21,6 +21,7 @@ typedef struct sDistDay
 } TsDistDay;
 
 #define WEEK_IN_SECOND 604800U
+#define TWO_WEEK_IN_SECOND 2 * WEEK_IN_SECOND
 #define DAYS_BY_YEAR 366
 #define THIS_YEAR_OFFSET 366
 #define NB_LAST_ACTIVITIES 10
@@ -365,6 +366,7 @@ bool lastActivityUpdated(TsActivity newActivity)
         l_ret = true;
         lastActivity.isFilled = newActivity.isFilled;
     }
+    lastActivity.polyline = newActivity.polyline;
     if (hasBeenRefreshed)
     {
         l_ret = true;
@@ -493,14 +495,14 @@ void getYearActivities(time_t start, time_t end)
 
     while (tmp < end)
     {
-        if ((tmp + WEEK_IN_SECOND) < end)
+        if ((tmp + TWO_WEEK_IN_SECOND) < end)
         {
-            tmp += WEEK_IN_SECOND;
+            tmp += TWO_WEEK_IN_SECOND;
         }
         else
         {
             tmp = end;
-            start = tmp - WEEK_IN_SECOND;
+            start = tmp - TWO_WEEK_IN_SECOND;
         }
         ret = -1;
         while (ret != 0)
@@ -623,19 +625,42 @@ void newYearBegin()
 void newMonthBegin()
 {
     initDB();
+    struct tm tm, lastDayPopulateTm;
 
-    struct tm tm;
+    lastDayPopulateTm = *localtime(&lastDayPopulate);
+
     if (getLocalTime(&tm))
     {
-
-        // for (uint8_t j = prevMonth; j < )
-        Serial.print("erasing month ");
-        Serial.println(tm.tm_mon);
-        for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
+        if (lastDayPopulateTm.tm_year < tm.tm_year - 1 || (lastDayPopulateTm.tm_year == tm.tm_year - 1 && lastDayPopulateTm.tm_mon <= tm.tm_mon))
         {
-            Serial.print(i);
-            Serial.println(" erased");
-            memset(&loopYear[i], 0, sizeof(TsDistDay));
+            for (uint16_t i = 0; i < DAYS_BY_YEAR; i++)
+            {
+                memset(&loopYear[i], 0, sizeof(TsDistDay));
+            }
+        }
+        else
+        {
+            for (uint8_t j = lastDayPopulateTm.tm_mon; j != tm.tm_mon; j++)
+            {
+                if (j > 11)
+                {
+                    j = 0;
+                }
+                Serial.print("erasing month ");
+                Serial.println(j);
+                for (uint16_t i = monthOffset[j]; i < monthOffset[j + 1]; i++)
+                {
+                    Serial.print(i);
+                    Serial.println(" erased");
+                    memset(&loopYear[i], 0, sizeof(TsDistDay));
+                }
+            }
+            for (uint16_t i = monthOffset[tm.tm_mon]; i < monthOffset[tm.tm_mon + 1]; i++)
+            {
+                Serial.print(i);
+                Serial.println(" erased");
+                memset(&loopYear[i], 0, sizeof(TsDistDay));
+            }
         }
         preferences.begin("stravaDB", false);
         preferences.clear();
