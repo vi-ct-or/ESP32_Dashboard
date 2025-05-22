@@ -10,6 +10,7 @@
 #include "displayEpaper.h"
 #include "network.h"
 #include "GPSTime.h"
+#include "dataSave.h"
 
 #define NB_MENU 5
 #define uS_TO_S_FACTOR 1000000ULL
@@ -59,13 +60,18 @@ void cbSyncTime(struct timeval *tv);
 void setup()
 {
   Serial.begin(9600);
+  Serial.println("START");
 
   // nvs_flash_erase(); // erase the NVS partition and...
   // nvs_flash_init();  // initialize the NVS partition.
   // Serial.println("nvs erased");
+  // Serial.println(DataSave_Init());
+  // Serial.println(DataSave_SaveCredentials());
+  // Serial.println(DataSave_ResetStrava());
+  // Serial.println(DataSave_ResetOTA());
+  // Serial.println("DONE");
   // while (true)
   //   ;
-  Serial.println("START");
 
   // esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   // esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
@@ -87,34 +93,15 @@ void setup()
     // Serial.println(wakeup_reason);
 
     nextHourRefresh = 2;
-
-    // preferences2.begin("stravaDB", false);
-    // preferences2.clear();
-    // preferences2.end();
-    // if (setGPSTime())
-    // {
-    //   setenv("TZ", TZ_INFO, 1);
-    //   tzset();
-    //   Serial.println("Set By GPS");
-    //   timeSource = TIME_SOURCE_GPS;
-    //   GPSSync = true;
-    // }
-    // else
-    // {
     if (!getLocalTime(&timeinfo1))
     {
       connectWifi(10000);
     }
     configTzTime(TZ_INFO, NTP_SERVER);
-    // if (doSyncNtp && connectWifi(10000))
-    // {
-    //   sntp_restart();
-    // }
     timeSource = TIME_SOURCE_NTP;
-    // }
+
     while (!getLocalTime(&timeinfo1))
     {
-      // connectWifi(10000);
       delay(1000);
       Serial.println("wait getLocalTime");
       // esp_task_wdt_reset();
