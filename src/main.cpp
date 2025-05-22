@@ -11,6 +11,7 @@
 #include "network.h"
 #include "GPSTime.h"
 #include "dataSave.h"
+#include "factorySetup.h"
 
 #define NB_MENU 5
 #define uS_TO_S_FACTOR 1000000ULL
@@ -62,16 +63,15 @@ void setup()
   Serial.begin(9600);
   Serial.println("START");
 
-  // nvs_flash_erase(); // erase the NVS partition and...
-  // nvs_flash_init();  // initialize the NVS partition.
-  // Serial.println("nvs erased");
-  // Serial.println(DataSave_Init());
-  // Serial.println(DataSave_SaveCredentials());
-  // Serial.println(DataSave_ResetStrava());
-  // Serial.println(DataSave_ResetOTA());
-  // Serial.println("DONE");
-  // while (true)
-  //   ;
+  nvs_flash_erase(); // erase the NVS partition and...
+  nvs_flash_init();  // initialize the NVS partition.
+  Serial.println("nvs erased");
+
+  FactorySteup_InitEEPROM();
+  // DataSave_RetrieveWifiCredentials();
+
+  while (true)
+    ;
 
   // esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   // esp_task_wdt_add(NULL);               // Subscribe to the Task WDT

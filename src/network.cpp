@@ -9,7 +9,7 @@ void initWifi()
 }
 bool connectWifi(int timeoutms)
 {
-    DataSave_RetreiveData();
+    DataSave_RetrieveWifiCredentials();
     bool connected = false;
     if (isWifiConnected())
     {
@@ -20,7 +20,7 @@ bool connectWifi(int timeoutms)
     if (n != 0)
     {
         int index = -1;
-        for (int i = 0; i < NB_NETWORK; i++)
+        for (int i = 0; i < nbWifi; i++)
         {
             for (int j = 0; j < n; ++j)
             {

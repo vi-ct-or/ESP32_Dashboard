@@ -40,8 +40,11 @@ extern QueueHandle_t xQueueStrava;
 extern SemaphoreHandle_t xSemaphore;
 
 #define DAYS_BY_YEAR 366
+#define NB_LAST_ACTIVITIES 20
+
 extern bool newActivityUploaded;
 extern const uint16_t monthOffset[];
+extern uint64_t lastActivitiesId[NB_LAST_ACTIVITIES];
 
 void initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
