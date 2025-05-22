@@ -8,6 +8,7 @@
 #include "Arduino.h"
 #include "network.h"
 #include "displayEpaper.h"
+#include "dataSave.h"
 #include <esp_task_wdt.h>
 
 typedef struct sDistDay
@@ -24,7 +25,6 @@ typedef struct sDistDay
 #define TWO_WEEK_IN_SECOND 2 * WEEK_IN_SECOND
 #define DAYS_BY_YEAR 366
 #define THIS_YEAR_OFFSET 366
-#define NB_LAST_ACTIVITIES 10
 
 const uint16_t monthOffset[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
 
@@ -58,6 +58,8 @@ bool lastActivityUpdated(TsActivity newActivity);
 void addIdLastActivities(uint64_t id);
 bool isIdLastActivities(uint64_t id);
 
+
+
 void initDB()
 {
     static bool isDBInit = false;
@@ -68,17 +70,12 @@ void initDB()
         lastActivityId = preferences.getLong64("lastActivityId", 0);
         lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
         preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
-        preferences.getBytes("prevActList", lastActivitiesId, sizeof(lastActivitiesId));
-
-        for (uint16_t i = 0; i < NB_LAST_ACTIVITIES; i++)
-        {
-            Serial.print("lastActivitiesId[");
-            Serial.print(i);
-            Serial.print("] = ");
-            Serial.println(lastActivitiesId[i]);
-        }
+        preferences.getString("apiRefreshToken", apiRefreshToken, sizeof(apiRefreshToken));
+        preferences.getString("clientSecret", clientSecret, sizeof(clientSecret));
+        clientId = preferences.getLong64("clientId", 0);
 
         preferences.end();
+        DataSave_RetreiveLastActivity();
         isDBInit = true;
     }
     else
@@ -111,7 +108,15 @@ bool getAccessToken(char *ret_token)
     {
 
         HTTPClient http;
-        http.begin(getTokenUrl);
+        std::string getTokenUrl;
+        getTokenUrl = "https://www.strava.com/oauth/token?grant_type=refresh_token&client_id=";
+        getTokenUrl += std::to_string(clientId);
+        getTokenUrl += "&client_secret=";
+        getTokenUrl += clientSecret;
+        getTokenUrl += "&refresh_token=";
+        getTokenUrl += apiRefreshToken;
+
+        http.begin(getTokenUrl.c_str());
 
         int httpResponseCode = http.POST("");
 
@@ -473,12 +478,15 @@ void populateDB(void)
         preferences.putLong("lastDayPopulate", lastDayPopulate);
         preferences.putLong64("lastActivityId", lastActivityId);
         preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
-        preferences.putBytes("prevActList", lastActivitiesId, sizeof(lastActivitiesId));
+        preferences.putString("apiRefreshToken", apiRefreshToken);
+        preferences.putString("clientSecret", clientSecret);
+        preferences.putLong64("clientId", clientId);
         preferences.end();
         Serial.print("lastdaypopulate end : ");
         Serial.println(lastDayPopulate);
         Serial.print("lastActivityId end : ");
         Serial.println(lastActivityId);
+        DataSave_SaveLastActivity();
     }
     else
     {
@@ -667,7 +675,9 @@ void newMonthBegin()
         preferences.putLong("lastDayPopulate", lastDayPopulate);
         preferences.putLong64("lastActivityId", lastActivityId);
         preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
-        preferences.putBytes("prevActList", lastActivitiesId, sizeof(lastActivitiesId));
+        preferences.putString("apiRefreshToken", apiRefreshToken);
+        preferences.putString("clientSecret", clientSecret);
+        preferences.putLong64("clientId", clientId);
         preferences.end();
     }
     // printDB(0);
