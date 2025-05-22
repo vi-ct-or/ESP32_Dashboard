@@ -7,7 +7,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "displayEpaper.h"
-#include "Preferences.h"
+#include "dataSave.h"
 
 #include "otaUpdate.h"
 
@@ -23,14 +23,12 @@
 bool getFileFromServer();
 bool performOTAUpdateFromSPIFFS();
 uint8_t getVersion();
-Preferences preferences3;
+uint8_t currentVersion;
 
 void updateFW()
 {
-    uint8_t currentVersion; // value will default to 0, if not set yet in NVS
-    preferences3.begin("ota", false);
-    currentVersion = preferences3.getUChar("swVersion", 2);
-    preferences3.end();
+    // value will default to 0, if not set yet in NVS
+    DataSave_RetrieveOTAData();
 
     uint8_t newVersion = getVersion();
     Serial.print("Current Version :");
@@ -45,16 +43,8 @@ void updateFW()
         {
             if (performOTAUpdateFromSPIFFS())
             {
-                // clear db
-                // preferences3.begin("stravaDB", false);
-                // preferences3.clear();
-                // preferences3.end();
-                nvs_flash_erase(); // erase the NVS partition and...
-                nvs_flash_init();  // initialize the NVS partition.
-
-                preferences3.begin("ota", false);
-                preferences3.putUChar("swVersion", newVersion);
-                preferences3.end();
+                currentVersion = newVersion;
+                DataSave_SaveOTAData();
             }
         }
         delay(5000);

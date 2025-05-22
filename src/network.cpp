@@ -1,6 +1,7 @@
 #include "credentials.h"
 #include "network.h"
 #include "WiFi.h"
+#include "dataSave.h"
 
 void initWifi()
 {
@@ -8,6 +9,7 @@ void initWifi()
 }
 bool connectWifi(int timeoutms)
 {
+    DataSave_RetreiveData();
     bool connected = false;
     if (isWifiConnected())
     {
@@ -27,6 +29,11 @@ bool connectWifi(int timeoutms)
                     Serial.println("Network found");
                     index = i;
                     break;
+                }
+                else
+                {
+                    Serial.print("Network checked : ");
+                    Serial.println(WiFi.SSID(j).c_str());
                 }
             }
             if (index != -1)

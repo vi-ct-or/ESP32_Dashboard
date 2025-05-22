@@ -1,0 +1,15 @@
+bearerToken to put in RTC RAM ?
+
+- center week number OK
+- change "cette annee" into the current year OK
+- time incorrect when refreshing OK
+- dont show last year current month weeks because they are emptied OK
+- add kudos count OK
+- center polyline OK 
+- date disapearing OK
+- center month and day OK
+- add "é, ..." in font : some ok
+- check last week for new activities ok ? 
+- polyline disapearing ok ?
+- put data in spi flash
+- erase all months between lastDayPopulate and now ok ?
