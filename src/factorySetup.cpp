@@ -4,12 +4,13 @@
 #include "factorySetup.h"
 #include "Preferences.h"
 #include "credentials.h"
+#include "strava.h"
 
 void FactorySteup_InitEEPROM()
 {
     Preferences preferences5;
     // Initialize EEPROM
-    DataSave_EraseEEPROM();
+    // DataSave_EraseEEPROM();
     DataSave_SaveWifiCredentials();
     DataSave_ResetOTA();
 
@@ -20,4 +21,10 @@ void FactorySteup_InitEEPROM()
     preferences5.putString("apiRefreshToken", apiRefreshToken);
     preferences5.putLong("lastDayPopulate", 0);
     preferences5.end();
+}
+
+void FactorySetup_ResetActivities()
+{
+    DataSave_resetLastActivities();
+    resetDB();
 }

@@ -10,7 +10,7 @@ void DataSave_SaveLastActivity();
 void DataSave_SaveOTAData();
 uint8_t DataSave_SaveWifiCredentials();
 uint8_t DataSave_ResetOTA();
-
+void DataSave_resetLastActivities();
 void DataSave_EraseEEPROM();
 
 #endif
