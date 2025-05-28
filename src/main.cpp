@@ -51,6 +51,7 @@ const int buttonPin = 0;
 esp_sleep_wakeup_cause_t wakeup_reason;
 bool goToSleep = false;
 bool GPSSync = false;
+bool rtcWasAvailable = true;
 
 uint8_t taskFinishedCnt = 0;
 
@@ -63,15 +64,16 @@ void setup()
   Serial.begin(9600);
   Serial.println("START");
 
-  nvs_flash_erase(); // erase the NVS partition and...
-  nvs_flash_init();  // initialize the NVS partition.
-  Serial.println("nvs erased");
+  // nvs_flash_erase(); // erase the NVS partition and...
+  // nvs_flash_init();  // initialize the NVS partition.
+  // Serial.println("nvs erased");
 
-  FactorySteup_InitEEPROM();
+  // FactorySteup_InitEEPROM();
   // DataSave_RetrieveWifiCredentials();
+  // Serial.println("eeprom erased");
 
-  while (true)
-    ;
+  // while (true)
+  // ;
 
   // esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   // esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
@@ -92,78 +94,29 @@ void setup()
     // Serial.println("wakeup after reset");
     // Serial.println(wakeup_reason);
 
-    nextHourRefresh = 2;
-    if (!getLocalTime(&timeinfo1))
-    {
-      connectWifi(10000);
-    }
-    configTzTime(TZ_INFO, NTP_SERVER);
-    timeSource = TIME_SOURCE_NTP;
-
-    while (!getLocalTime(&timeinfo1))
-    {
-      delay(1000);
-      Serial.println("wait getLocalTime");
-      // esp_task_wdt_reset();
-    }
+    // FactorySetup_ResetActivities();
+    // Serial.println("activities reset");
 
     displayTemplate();
+    DataSave_RetreiveLastActivity();
+    initDB();
 
-    if (connectWifi(10000))
-    {
-      updateFW();
-    }
-
-    // init lastActivity to zero
-    TsActivity *lastActivity = getStravaLastActivity();
-    lastActivity->isFilled = true;
-    lastActivity->dist = 0;
-    lastActivity->deniv = 0;
-    lastActivity->time = 0;
-    lastActivity->timestamp = 0;
-    lastActivity->type = ACTIVITY_TYPE_UNKNOWN;
-    memset(lastActivity->name, 0, MAX_NAME_LENGTH);
-    lastActivity->polyline = "";
-    lastActivity->kudos = 0;
-
-    // esp_task_wdt_reset();
-
+    nextHourRefresh = 2;
     prevMinute = 255;
     prevHour = 255;
     prevDay = 255;
-    preferences2.begin("date", false);
-    prevMonth = preferences2.getUShort("prevMonth", 255);
-    if (prevMonth == 255)
-    {
-      prevMonth = timeinfo1.tm_mon;
-      preferences2.putUShort("prevMonth", prevMonth);
-      // Serial.println("prevMonth saved in flash");
-    }
-    preferences2.end();
+
+    // esp_task_wdt_reset();
   }
   else
   {
-    // if (timeSource == TIME_SOURCE_GPS && setGPSTime())
-    // {
 
-    //   setenv("TZ", TZ_INFO, 1);
-    //   tzset();
-    //   Serial.println("Set By GPS");
-    //   timeSource = TIME_SOURCE_GPS;
-    //   GPSSync = true;
-    // }
-    // else
-    // {
-    //   timeSource = TIME_SOURCE_NTP;
-    // }
     if (timeSource == TIME_SOURCE_NTP)
     {
       configTzTime(TZ_INFO, NTP_SERVER);
     }
-    initDisplay();
     // Serial.println("wakeup after deepsleep timer");
   }
-  // displayTimeSync(GPSSync);
   // esp_task_wdt_reset();
 
   xSemaphore = xSemaphoreCreateCounting(3, 0);
@@ -295,6 +248,69 @@ void TimeTaskFunction(void *parameter)
         queueStravaMessage = STRAVA_MESSAGE_POPULATE;
         xQueueSend(xQueueStrava, &queueStravaMessage, 0);
       }
+      if (!rtcWasAvailable)
+      {
+        rtcWasAvailable = true;
+        queueDisplayMessage = DISPLAY_MESSAGE_TOTAL_YEAR;
+        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+      }
+    }
+    else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
+    {
+      // first boot
+      if (rtcAvailable())
+      {
+        rtcWasAvailable = true;
+        Serial.println("RTC available");
+        adjustLocalTimeFromRtc();
+        queueDisplayMessage = DISPLAY_MESSAGE_TIME;
+        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        queueDisplayMessage = DISPLAY_MESSAGE_DATE;
+        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        queueDisplayMessage = DISPLAY_MESSAGE_TOTAL_YEAR;
+        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        if (getLocalTime(&timeinfo1) && timeinfo1.tm_min % 2 == 0)
+        {
+          queueDisplayMessage = DISPLAY_MESSAGE_MONTHS;
+        }
+        else
+        {
+          queueDisplayMessage = DISPLAY_MESSAGE_WEEKS;
+        }
+        prevMinute = timeinfo1.tm_min;
+        prevDay = timeinfo1.tm_mday;
+      }
+      else
+      {
+        rtcWasAvailable = false;
+      }
+
+      queueDisplayMessage = DISPLAY_MESSAGE_LAST_ACTIVITY;
+      xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+      queueDisplayMessage = DISPLAY_MESSAGE_POLYLINE;
+      xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+
+      if (connectWifi(10000))
+      {
+        configTzTime(TZ_INFO, NTP_SERVER);
+        timeSource = TIME_SOURCE_NTP;
+        goToSleep = false;
+      }
+
+      // if (connectWifi(10000))
+      // {
+      //   updateFW();
+      // }
+
+      preferences2.begin("date", false);
+      prevMonth = preferences2.getUShort("prevMonth", 255);
+      if (prevMonth == 255)
+      {
+        prevMonth = timeinfo1.tm_mon;
+        preferences2.putUShort("prevMonth", prevMonth);
+        // Serial.println("prevMonth saved in flash");
+      }
+      preferences2.end();
     }
 
     if (timeinfo1.tm_sec >= 58)

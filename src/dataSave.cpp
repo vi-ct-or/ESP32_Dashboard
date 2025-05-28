@@ -109,14 +109,12 @@ void DataSave_RetreiveLastActivity()
     std::string polyline = "";
 
     char charPolyline;
-    uint16_t cnt = 0;
     do
     {
         eep.read(offset, (uint8_t *)&charPolyline, sizeof(charPolyline));
         polyline += charPolyline;
         offset += sizeof(charPolyline);
-        cnt++;
-        if (cnt > 1000)
+        if (offset > 4000)
         {
             Serial.println("Error : polyline too long");
             break;
@@ -216,4 +214,44 @@ void DataSave_EraseEEPROM()
         eep.write(addr, &blank, 1);
     }
     Serial.println("EEPROM erased.");
+}
+
+void DataSave_resetLastActivities()
+{
+    DataSave_Init();
+    uint32_t offset = 1000;
+    memset(&lastActivitiesId, 0, sizeof(lastActivitiesId));
+
+    eep.write(offset, (uint8_t *)&lastActivitiesId, sizeof(lastActivitiesId));
+    offset += sizeof(lastActivitiesId);
+
+    // last Activity
+    TsActivity *lastActivity = getStravaLastActivity();
+    lastActivity->deniv = 0;
+    lastActivity->dist = 0;
+    lastActivity->time = 0;
+    lastActivity->timestamp = 0;
+    lastActivity->type = ACTIVITY_TYPE_UNKNOWN;
+    lastActivity->kudos = 0;
+    lastActivity->isFilled = false;
+    memset(lastActivity->name, 0, sizeof(lastActivity->name));
+    lastActivity->polyline.clear();
+    eep.write(offset, (uint8_t *)&(lastActivity->deniv), sizeof(lastActivity->deniv));
+    offset += sizeof(lastActivity->deniv);
+    eep.write(offset, (uint8_t *)&lastActivity->dist, sizeof(lastActivity->dist));
+    offset += sizeof(lastActivity->dist);
+    eep.write(offset, (uint8_t *)&lastActivity->time, sizeof(lastActivity->time));
+    offset += sizeof(lastActivity->time);
+    eep.write(offset, (uint8_t *)&lastActivity->timestamp, sizeof(lastActivity->timestamp));
+    offset += sizeof(lastActivity->timestamp);
+    eep.write(offset, (uint8_t *)&lastActivity->type, sizeof(lastActivity->type));
+    offset += sizeof(lastActivity->type);
+    eep.write(offset, (uint8_t *)&lastActivity->kudos, sizeof(lastActivity->kudos));
+    offset += sizeof(lastActivity->kudos);
+    eep.write(offset, (uint8_t *)&lastActivity->isFilled, sizeof(lastActivity->isFilled));
+    offset += sizeof(lastActivity->isFilled);
+    eep.write(offset, (uint8_t *)&lastActivity->name, sizeof(lastActivity->name));
+    offset += sizeof(lastActivity->name);
+    const char *polyline = lastActivity->polyline.c_str();
+    eep.write(offset, (uint8_t *)polyline, lastActivity->polyline.size() + 1);
 }

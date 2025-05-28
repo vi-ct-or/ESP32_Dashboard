@@ -52,6 +52,7 @@ void populateDB(void);
 void newYearBegin();
 void newMonthBegin();
 void StravaTaskFunction(void *parameter);
+void resetDB();
 
 TsActivity *getStravaLastActivity();
 

@@ -39,7 +39,7 @@ time_t lastDayPopulate;
 uint64_t lastActivityId;
 struct tm timeinfo;
 Preferences preferences;
-RTC_DATA_ATTR bool newActivityUploaded = true;
+RTC_DATA_ATTR bool newActivityUploaded;
 RTC_DATA_ATTR bool activityUpdated = false;
 RTC_DATA_ATTR TsActivity lastActivity;
 
@@ -48,17 +48,46 @@ SemaphoreHandle_t xSemaphore = NULL;
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
-int8_t getLastActivitieDist(time_t start, time_t end);
+int8_t getLastActivitieDist(time_t start, time_t end, bool isLast);
 time_t timeStringToTimestamp(char *str);
 void timeStringToTm(const char *str, struct tm *tm);
 TeActivityType getActivityType(const char *str);
 void getYearActivities(time_t start, time_t end);
 void printDB(uint16_t nbDays);
-bool lastActivityUpdated(TsActivity newActivity);
+bool lastActivityUpdated(TsActivity *newActivity);
 void addIdLastActivities(uint64_t id);
 bool isIdLastActivities(uint64_t id);
 
+void resetDB()
+{
+    for (uint16_t i = 0; i < DAYS_BY_YEAR; i++)
+    {
+        loopYear[i].distBike = 0;
+        loopYear[i].distRun = 0;
+        loopYear[i].timeBike = 0;
+        loopYear[i].timeRun = 0;
+        loopYear[i].climbBike = 0;
+        loopYear[i].climbRun = 0;
+    }
+    lastDayPopulate = 0;
+    lastActivityId = 0;
 
+    preferences.begin("stravaDB", false);
+
+    preferences.getString("apiRefreshToken", apiRefreshToken, sizeof(apiRefreshToken));
+    preferences.getString("clientSecret", clientSecret, sizeof(clientSecret));
+    clientId = preferences.getLong64("clientId", 0);
+
+    preferences.clear();
+    preferences.putLong("lastDayPopulate", lastDayPopulate);
+    preferences.putLong64("lastActivityId", lastActivityId);
+    preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
+    preferences.putString("apiRefreshToken", apiRefreshToken);
+    preferences.putString("clientSecret", clientSecret);
+    preferences.putLong64("clientId", clientId);
+
+    preferences.end();
+}
 
 void initDB()
 {
@@ -70,6 +99,7 @@ void initDB()
         lastActivityId = preferences.getLong64("lastActivityId", 0);
         lastDayPopulate = preferences.getLong("lastDayPopulate", 0);
         preferences.getBytes("loopYear", loopYear, sizeof(loopYear));
+
         preferences.getString("apiRefreshToken", apiRefreshToken, sizeof(apiRefreshToken));
         preferences.getString("clientSecret", clientSecret, sizeof(clientSecret));
         clientId = preferences.getLong64("clientId", 0);
@@ -152,7 +182,7 @@ bool getAccessToken(char *ret_token)
     return ret;
 }
 
-int8_t getLastActivitieDist(time_t start, time_t end)
+int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
 {
     int8_t ret = -1;
     std::string t = std::to_string(start);
@@ -231,24 +261,42 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 Serial.println(activityId);
                 Serial.print("activity start timestamp : ");
                 Serial.println(activityStartTime);
-                TsActivity tmpActivity;
-                if (activityStartTime >= lastActivity.timestamp)
+                TsActivity tmpActivity = {
+                    false,                 // isFilled
+                    0,                     // dist
+                    0,                     // time
+                    0,                     // deniv
+                    0,                     // timestamp
+                    ACTIVITY_TYPE_UNKNOWN, // type
+                    "",                    // name
+                    "",                    // polyline
+                    0                      // kudos
+                };
+                if (activityStartTime >= lastActivity.timestamp && isLast && i == 0)
                 {
                     tmpActivity.isFilled = true;
-                    tmpActivity.polyline = array[i]["map"]["summary_polyline"].as<std::string>();
+                    if (/*isLast &&*/ i == 0)
+                    {
+                        if (array[i]["map"]["summary_polyline"].is<std::string>())
+                        {
+                            tmpActivity.polyline = array[i]["map"]["summary_polyline"].as<std::string>();
+                        }
+                        if (array[i]["name"].is<const char *>())
+                        {
+                            strncpy(tmpActivity.name, array[i]["name"].as<const char *>(), sizeof(tmpActivity.name));
+                            // memcpy(tmpActivity.name, tmpName.c_str(), min((int)tmpName.size(), MAX_NAME_LENGTH - 1));
+                            // tmpActivity.name[min((int)tmpName.size(), MAX_NAME_LENGTH - 1)] = '\0';
+                        }
+                    }
                     tmpActivity.type = activityType;
-                    tmpActivity.time = movingTime;
-                    tmpActivity.deniv = array[i]["total_elevation_gain"].as<int>();
+                    tmpActivity.time = (uint16_t)movingTime;
+                    tmpActivity.deniv = array[i]["total_elevation_gain"].as<uint16_t>();
                     tmpActivity.dist = (uint16_t)(array[i]["distance"].as<float>() / 10.0);
-
-                    std::string tmpName = array[i]["name"].as<std::string>();
-                    memcpy(tmpActivity.name, tmpName.c_str(), min((int)tmpName.size(), MAX_NAME_LENGTH - 1));
-                    tmpActivity.name[min((int)tmpName.size(), MAX_NAME_LENGTH - 1)] = '\0';
 
                     tmpActivity.kudos = array[i]["kudos_count"].as<uint32_t>();
                     tmpActivity.timestamp = activityStartTime;
-                    activityUpdated = lastActivityUpdated(tmpActivity);
-                    newActivityUploaded = activityUpdated;
+                    activityUpdated = lastActivityUpdated(&tmpActivity);
+                    newActivityUploaded = newActivityUploaded || activityUpdated;
                     if (activityStartTime == lastActivity.timestamp)
                     {
                         continue;
@@ -256,7 +304,6 @@ int8_t getLastActivitieDist(time_t start, time_t end)
 
                     lastActivity.timestamp = activityStartTime;
                 }
-                Serial.println(array[i]["name"].as<std::string>().c_str());
                 if (activityStartTime - 1 == lastDayPopulate || prevLastActivityTimestamp == activityStartTime || activityId == lastActivityId || isIdLastActivities(activityId) == true)
                 {
                     Serial.println("already processed");
@@ -266,6 +313,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
 
                 newActivityUploaded = true;
                 int utcOffset = array[i]["utc_offset"].as<int>();
+                Serial.print("cucu");
                 if (activityStartTime /*+ utcOffset*/ > lastDayPopulate)
                 {
                     lastDayPopulate = activityStartTime /*+ utcOffset*/ - 1;
@@ -295,7 +343,7 @@ int8_t getLastActivitieDist(time_t start, time_t end)
                 }
                 Serial.print(dayIdx);
                 Serial.print(" : ");
-                Serial.print(array[i]["name"].as<String>());
+                Serial.print(array[i]["name"].as<const char *>());
                 Serial.print(" : ");
                 Serial.print(array[i]["distance"].as<float>() / 1000.0, 2);
                 Serial.print(" km -> ");
@@ -320,58 +368,51 @@ int8_t getLastActivitieDist(time_t start, time_t end)
     return ret;
 }
 
-bool lastActivityUpdated(TsActivity newActivity)
+bool lastActivityUpdated(TsActivity *newActivity)
 {
+    Serial.println("start lastActivityUpdated");
     bool l_ret = false;
-    if (lastActivity.timestamp != newActivity.timestamp)
+    if (lastActivity.timestamp != newActivity->timestamp)
     {
-        Serial.println("lastActivityUpdated() : timestamp changed");
         l_ret = true;
         // lastActivity.timestamp = newActivity.timestamp;
     }
-    if (lastActivity.dist != newActivity.dist)
+    if (lastActivity.dist != newActivity->dist)
     {
         l_ret = true;
-        lastActivity.dist = newActivity.dist;
+        lastActivity.dist = newActivity->dist;
     }
-    if (lastActivity.deniv != newActivity.deniv)
+    if (lastActivity.deniv != newActivity->deniv)
     {
-        Serial.println("lastActivityUpdated() : deniv changed");
         l_ret = true;
-        lastActivity.deniv = newActivity.deniv;
+        lastActivity.deniv = newActivity->deniv;
     }
-    if (lastActivity.time != newActivity.time)
+    if (lastActivity.time != newActivity->time)
     {
-        Serial.println("lastActivityUpdated() : time changed");
         l_ret = true;
-        lastActivity.time = newActivity.time;
+        lastActivity.time = newActivity->time;
     }
-    if (lastActivity.kudos != newActivity.kudos)
+    if (lastActivity.kudos != newActivity->kudos)
     {
-        Serial.println("lastActivityUpdated() : kudos changed");
         l_ret = true;
-        lastActivity.kudos = newActivity.kudos;
+        lastActivity.kudos = newActivity->kudos;
     }
-    if (lastActivity.type != newActivity.type)
+    if (lastActivity.type != newActivity->type)
     {
-        Serial.println("lastActivityUpdated() : type changed");
         l_ret = true;
-        lastActivity.type = newActivity.type;
+        lastActivity.type = newActivity->type;
     }
-    if (memcmp(lastActivity.name, newActivity.name, MAX_NAME_LENGTH) != 0)
+    if (strncmp(lastActivity.name, newActivity->name, sizeof(lastActivity.name)) != 0)
     {
-        Serial.println("lastActivityUpdated() : name changed");
         l_ret = true;
-        memcpy(lastActivity.name, newActivity.name, MAX_NAME_LENGTH);
-        // lastActivity.name = newActivity.name;
+        strncpy(lastActivity.name, newActivity->name, sizeof(lastActivity.name));
     }
-    if (lastActivity.isFilled != newActivity.isFilled)
+    if (lastActivity.isFilled != newActivity->isFilled)
     {
-        Serial.println("lastActivityUpdated() : isFilled changed");
         l_ret = true;
-        lastActivity.isFilled = newActivity.isFilled;
+        lastActivity.isFilled = newActivity->isFilled;
     }
-    lastActivity.polyline = newActivity.polyline;
+    lastActivity.polyline = newActivity->polyline;
     if (hasBeenRefreshed)
     {
         l_ret = true;
@@ -468,7 +509,7 @@ void populateDB(void)
     endTimestamp = mktime(&timeinfo);
     Serial.print("End Timestamp : ");
     Serial.println(endTimestamp);
-
+    newActivityUploaded = false;
     getYearActivities(startTimestamp, endTimestamp);
     // save loopYear
     if (newActivityUploaded)
@@ -500,22 +541,25 @@ void getYearActivities(time_t start, time_t end)
 
     time_t tmp = start;
     int8_t ret = -1;
+    bool lastRequest = false;
 
     while (tmp < end)
     {
         if ((tmp + TWO_WEEK_IN_SECOND) < end)
         {
             tmp += TWO_WEEK_IN_SECOND;
+            lastRequest = false;
         }
         else
         {
             tmp = end;
             start = tmp - TWO_WEEK_IN_SECOND;
+            lastRequest = true;
         }
         ret = -1;
         while (ret != 0)
         {
-            ret = getLastActivitieDist(start, tmp);
+            ret = getLastActivitieDist(start, tmp, lastRequest);
             if (ret == -2) // error 429 (too much requests)
             {
                 // save arrays, save lastDay populate, exit
@@ -529,6 +573,15 @@ void getYearActivities(time_t start, time_t end)
             }
         }
         start = tmp + 1;
+        if (!lastRequest)
+        {
+            TeDisplayMessage msg;
+            msg = DISPLAY_MESSAGE_WEEKS;
+            xQueueSend(xQueueDisplay, &msg, 0);
+            // msg = DISPLAY_MESSAGE_TOTAL_YEAR;
+            // xQueueSend(xQueueDisplay, &msg, 0);
+            vTaskDelay(50 / portTICK_PERIOD_MS);
+        }
     }
 }
 
@@ -701,6 +754,7 @@ void addIdLastActivities(uint64_t id)
 
 bool isIdLastActivities(uint64_t id)
 {
+    Serial.println("in isIdLastActivities : ");
     for (uint8_t i = 0; i < NB_LAST_ACTIVITIES; i++)
     {
         if (lastActivitiesId[i] == id)
@@ -708,6 +762,7 @@ bool isIdLastActivities(uint64_t id)
             return true;
         }
     }
+    Serial.println("out isIdLastActivities : ");
     return false;
 }
 

@@ -983,6 +983,7 @@ void drawWeeks(const void *pv)
     uint8_t weekNb;
     timeTmp = nowTime;
     display.setTextSize(1);
+    Serial.println("begin drawing weeks");
     for (int8_t i = WEEK_NB - 1; i > -1; i--)
     {
         bool skipThisWeek = false;
@@ -1002,8 +1003,8 @@ void drawWeeks(const void *pv)
 
         tmTmp = *localtime(&timeTmp);
         getYearAndWeek(tmTmp, year, currentWeek);
-        // display.setCursor(x, y + 2 + (i % 3) * 5);
-        if ((currentWeek % 5 == 0 || currentWeek == 1) && x < 300 - 15)
+
+        if ((currentWeek % 5 == 0 || currentWeek == 1) /*&& x < 300 - 15*/)
         {
             Serial.print("current week print : ");
             Serial.println(currentWeek);
