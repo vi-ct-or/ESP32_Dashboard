@@ -232,6 +232,12 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
                 Serial.println("no activities");
                 ret = 0;
             }
+            if (error == DeserializationError::NoMemory)
+            {
+                Serial.println("not enough memory for deserialization");
+                ret = -5;
+            }
+
             Serial.print("deserializeJson() returned ");
             Serial.println(error.c_str());
         }
@@ -571,6 +577,11 @@ void getYearActivities(time_t start, time_t end)
                 Serial.println("pb server ?");
                 return;
             }
+            else if (ret == -5)
+            { // deserialization no memory
+                Serial.println("deserialization no memory");
+                tmp = start + (tmp - start) / 2;
+            }
         }
         start = tmp + 1;
         if (!lastRequest)
@@ -701,7 +712,7 @@ void newMonthBegin()
         }
         else
         {
-            for (uint8_t j = lastDayPopulateTm.tm_mon; j != tm.tm_mon; j++)
+            for (uint8_t j = lastDayPopulateTm.tm_mon + 1; j != tm.tm_mon; j++)
             {
                 if (j > 11)
                 {
