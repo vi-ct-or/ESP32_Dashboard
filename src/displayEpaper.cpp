@@ -297,40 +297,8 @@ void drawDateStr(const void *pv)
     }
 
     uint8_t maxLen = max(day.size(), month.size());
-    // if (day.size() < month.size())
-    // {
-    //     day.insert(0, (month.size() - day.size()) / 2, ' ');
-    //     day.insert(day.size(), (month.size() - day.size()) / 2, ' ');
-    // }
-    // else if (day.size() > month.size())
-    // {
-    //     month.insert(0, (day.size() - month.size()) / 2, ' ');
-    //     month.insert(month.size(), (day.size() - month.size()) / 2, ' ');
-    // }
 
     nb = std::to_string(now->tm_mday);
-    // if (now->tm_mday < 10)
-    // {
-    //     nb.insert(0, 1, '0');
-    // }
-    // nb.insert(0, (maxLen - 2) / 2, ' ');
-    // nb.insert(nb.size(), (maxLen - 2) / 2, ' ');
-
-    // dateStr = day;
-    // dateStr += "\n";
-    // dateStr += nb;
-    // dateStr += "\n";
-    // dateStr += month;
-    // // drawText(1, 5, dateStr.c_str());
-    // //  simulate max lenght to erase correctly previous day/month if it was longer
-    // int16_t x1, y1;
-    // uint16_t w, h;
-    // std::string maxDateLenght = "Vendredi\n31\nSeptembre";
-    // display.setTextSize(2);
-    // display.getTextBounds(maxDateLenght.c_str(), 1, 5, &x1, &y1, &w, &h);
-    // display.setPartialWindow(x1, y1, w, h);
-    // display.setCursor(1, 5);
-    // display.print(dateStr.c_str());
 
     display.setTextSize(2);
     display.setPartialWindow(0, 0, 120, 60);
@@ -558,6 +526,13 @@ void drawStravaPolyline(const void *pv)
         int minLng = getMinLng();
 
         int maxDiff = max(maxLat - minLat, maxLng - minLng);
+        Serial.print("maxDiff = ");
+        Serial.println(maxDiff);
+        if (maxDiff == 0)
+        {
+            Serial.println("maxDiff is 0, no course to display");
+            return;
+        }
         int minDiff = min(maxLat - minLat, maxLng - minLng);
         int offsetV = 0;
         int offsetH = 0;
@@ -1121,16 +1096,57 @@ std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uin
                 word += c; // Add the last character if it's not a space
             }
 
+            // Check if the word exceeds the maxWidth
             if (currentWidth + word.length() > maxWidth)
             {
-                currentNbLine++;
-                if (currentNbLine > maxLine)
+                if (word.length() > maxWidth)
                 {
-                    currentNbLine--;
-                    break;
+                    if (currentWidth > 0)
+                    {
+                        result += ' ';
+                        currentWidth++;
+                    }
+
+                    if (currentWidth > maxWidth - 4)
+                    {
+                        result += "\n";
+                        currentWidth = 0;
+                        currentNbLine++;
+                        if (currentNbLine > maxLine)
+                        {
+                            currentNbLine--;
+                            break;
+                        }
+                    }
+                    // If the word itself is longer than maxWidth, we need to break it
+                    while (word.length() > maxWidth)
+                    {
+                        result += word.substr(0, std::max(maxWidth - currentWidth, 0));
+                        result += '\n';
+                        currentNbLine++;
+                        if (currentNbLine > maxLine)
+                        {
+                            currentNbLine--;
+                            return result; // Stop if we exceed the max number of lines
+                        }
+                        word = word.substr(std::max(maxWidth - currentWidth, 0));
+                    }
                 }
-                result += '\n';
-                currentWidth = 0;
+                else
+                {
+                    currentNbLine++;
+                    if (currentNbLine > maxLine)
+                    {
+                        currentNbLine--;
+                        break;
+                    }
+                    // Only add a newline if the result is not empty
+                    if (!result.empty())
+                    {
+                        result += '\n';
+                    }
+                    currentWidth = 0;
+                }
             }
             else if (currentWidth > 0)
             {

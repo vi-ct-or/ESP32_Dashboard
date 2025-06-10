@@ -10,7 +10,7 @@ void FactorySteup_InitEEPROM()
 {
     Preferences preferences5;
     // Initialize EEPROM
-    // DataSave_EraseEEPROM();
+    DataSave_EraseEEPROM();
     DataSave_SaveWifiCredentials();
     DataSave_ResetOTA();
 
