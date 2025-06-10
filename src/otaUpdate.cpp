@@ -62,6 +62,12 @@ uint8_t getVersion()
         String resp = http.getString();
         version = (uint8_t)resp.toInt();
     }
+    else
+    {
+        Serial.print("HTTP GET failed with error: ");
+        Serial.println(httpResponse);
+        version = 0; // Set version to 0 if the request fails
+    }
 
     http.end();
     return version;

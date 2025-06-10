@@ -201,7 +201,7 @@ uint8_t DataSave_ResetOTA()
     DataSave_Init();
     uint8_t ret = 0;
     uint32_t offset = 500; // offset for OTA data
-    uint8_t versionZero = 2;
+    uint8_t versionZero = 0;
     ret = eep.write(offset, (uint8_t *)&versionZero, sizeof(versionZero));
     return ret;
 }
