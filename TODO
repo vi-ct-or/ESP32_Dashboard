@@ -11,5 +11,6 @@ bearerToken to put in RTC RAM ?
 - add "é, ..." in font : some ok
 - check last week for new activities ok ? 
 - polyline disapearing ok ?
-- put data in spi flash
+- put data in spi flash ok
 - erase all months between lastDayPopulate and now ok ?
+- display at the beginnig at first boot
