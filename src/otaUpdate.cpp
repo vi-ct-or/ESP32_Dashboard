@@ -46,7 +46,7 @@ void updateFW()
                 DataSave_SaveOTAData();
             }
         }
-        delay(5000);
+        delay(1000);
         ESP.restart(); // Restart ESP32 to apply the update
     }
 }
