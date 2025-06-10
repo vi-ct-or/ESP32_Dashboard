@@ -208,7 +208,7 @@ void DataSave_EraseEEPROM()
 {
     DataSave_Init();
     const uint16_t eepromSize = 4096; // 32kbit = 4096 bytes for 24C32
-    uint8_t blank = 0xFF;
+    uint8_t blank = 0x0;
     for (uint16_t addr = 0; addr < eepromSize; ++addr)
     {
         eep.write(addr, &blank, 1);

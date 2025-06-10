@@ -19,6 +19,8 @@
 #define DEEPSLEEP_TIME 50
 #define WDT_TIMEOUT 60
 
+#define REFRESH_HOUR 3 // hour to refresh the display
+
 typedef enum eTimeSource
 {
   TIME_SOURCE_NONE,
@@ -36,7 +38,6 @@ RTC_DATA_ATTR uint8_t prevHour;
 RTC_DATA_ATTR uint8_t prevDay;
 RTC_DATA_ATTR uint8_t prevMonth;
 RTC_DATA_ATTR TeTimeSource timeSource = TIME_SOURCE_NONE;
-RTC_DATA_ATTR uint8_t nextHourRefresh;
 
 TaskHandle_t TimeTaskHandle, DisplayTaskHandle, StravaTaskHandle;
 TickType_t TimeTaskDelay = pdMS_TO_TICKS(100);
@@ -73,7 +74,7 @@ void setup()
   // Serial.println("eeprom erased");
 
   // while (true)
-  // ;
+  //   ;
 
   // esp_task_wdt_init(WDT_TIMEOUT, true); // Initialize ESP32 Task WDT
   // esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
@@ -101,7 +102,6 @@ void setup()
     DataSave_RetreiveLastActivity();
     initDB();
 
-    nextHourRefresh = 2;
     prevMinute = 255;
     prevHour = 255;
     prevDay = 255;
@@ -204,17 +204,12 @@ void TimeTaskFunction(void *parameter)
             goToSleep = false;
           }
         }
-        if ((timeinfo1.tm_hour == nextHourRefresh) && timeinfo1.tm_min == 0 && timeinfo1.tm_sec <= 48)
+        if ((timeinfo1.tm_hour == REFRESH_HOUR) && timeinfo1.tm_min == 0 && timeinfo1.tm_sec <= 48)
         {
-          if (connectWifi(10000))
-          {
-            queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
-            xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
-          }
-          else
-          {
-            nextHourRefresh++;
-          }
+          DataSave_RetreiveLastActivity();
+          initDB();
+          queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
+          xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
         }
       }
       if (timeinfo1.tm_mday != prevDay)
@@ -292,10 +287,10 @@ void TimeTaskFunction(void *parameter)
 
       if (connectWifi(10000))
       {
-        configTzTime(TZ_INFO, NTP_SERVER);
-        timeSource = TIME_SOURCE_NTP;
         goToSleep = false;
       }
+      configTzTime(TZ_INFO, NTP_SERVER);
+      timeSource = TIME_SOURCE_NTP;
 
       // if (connectWifi(10000))
       // {

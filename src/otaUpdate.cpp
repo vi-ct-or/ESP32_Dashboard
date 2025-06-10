@@ -27,7 +27,6 @@ uint8_t currentVersion;
 
 void updateFW()
 {
-    // value will default to 0, if not set yet in NVS
     DataSave_RetrieveOTAData();
 
     uint8_t newVersion = getVersion();
