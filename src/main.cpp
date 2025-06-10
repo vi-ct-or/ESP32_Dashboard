@@ -98,6 +98,11 @@ void setup()
     // FactorySetup_ResetActivities();
     // Serial.println("activities reset");
 
+    if (connectWifi(10000))
+    {
+      updateFW();
+    }
+
     displayTemplate();
     DataSave_RetreiveLastActivity();
     initDB();
@@ -291,11 +296,6 @@ void TimeTaskFunction(void *parameter)
       }
       configTzTime(TZ_INFO, NTP_SERVER);
       timeSource = TIME_SOURCE_NTP;
-
-      // if (connectWifi(10000))
-      // {
-      //   updateFW();
-      // }
 
       preferences2.begin("date", false);
       prevMonth = preferences2.getUShort("prevMonth", 255);
