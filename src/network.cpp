@@ -7,6 +7,28 @@ void initWifi()
 {
     WiFi.mode(WIFI_STA);
 }
+
+void testWifi()
+{
+    time_t start = millis();
+    Serial.println(WiFi.begin("Freebox-5DA410", "familleleroch"));
+    // Serial.println(WiFi.begin("iPhone de Victor", "victorle"));
+    // Serial.println(WiFi.begin("TestEsp", "testduwifi"));
+    Serial.println("Connecting to WiFi..");
+
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(1000);
+        Serial.print(".");
+    }
+    time_t end = millis();
+    Serial.println("");
+    Serial.print("Connected to the WiFi network in ");
+    Serial.print((end - start) / 1000);
+    Serial.println(" seconds");
+    WiFi.disconnect(true);
+}
+
 bool connectWifi(int timeoutms)
 {
     DataSave_RetrieveWifiCredentials();

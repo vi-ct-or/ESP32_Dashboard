@@ -21,7 +21,13 @@ Wifi Password 3 -> 32 bytes // addr 161-192
 -- OTA : -> 1 byte
 lastVersion -> 1 byte // addr 500
 
-lastActivity -> 87 bytes // 501
+-- Strava API credentials
+clientID -> 8 bytes // addr 600-607
+clientSecret -> 40 bytes // addr 608-647
+apiRefreshToken -> 40 bytes // addr 648-687
+
+-- Strava last activities
+lastActivity -> 87 bytes // 1000
 
 
 */
@@ -35,6 +41,11 @@ uint8_t DataSave_Init()
     {
         ret = eep.begin();
         initialized = true;
+        if (ret != 0)
+        {
+            Serial.print("EEPROM init failed : ");
+            Serial.println(ret);
+        }
     }
     return ret;
 }
@@ -86,6 +97,8 @@ void DataSave_RetreiveLastActivity()
     // retrieve last activities list
     eep.read(offset, (uint8_t *)&lastActivitiesId, sizeof(lastActivitiesId));
     offset += sizeof(lastActivitiesId);
+    eep.read(offset, (uint8_t *)&lastActivityTimestamp, sizeof(lastActivityTimestamp));
+    offset += sizeof(lastActivityTimestamp);
     // last Activity
     TsActivity *lastActivity = getStravaLastActivity();
     eep.read(offset, (uint8_t *)&lastActivity->deniv, sizeof(lastActivity->deniv));
@@ -134,6 +147,26 @@ void DataSave_RetrieveOTAData()
     eep.read(offset, (uint8_t *)&currentVersion, sizeof(currentVersion));
 }
 
+void DataSave_RetrieveStravaCredentials()
+{
+    DataSave_Init();
+    uint32_t offset = 600; // offset for Strava API credentials
+
+    eep.read(offset, (uint8_t *)&clientId, sizeof(clientId));
+    offset += sizeof(clientId);
+    eep.read(offset, (uint8_t *)clientSecret, sizeof(clientSecret));
+    offset += sizeof(clientSecret);
+    eep.read(offset, (uint8_t *)apiRefreshToken, sizeof(apiRefreshToken));
+    offset += sizeof(apiRefreshToken);
+
+    Serial.print("clientId : ");
+    Serial.println(clientId);
+    Serial.print("clientSecret : ");
+    Serial.println(clientSecret);
+    Serial.print("apiRefreshToken : ");
+    Serial.println(apiRefreshToken);
+}
+
 void DataSave_SaveLastActivity()
 {
     DataSave_Init();
@@ -141,6 +174,8 @@ void DataSave_SaveLastActivity()
     uint32_t offset = 1000;
     eep.write(offset, (uint8_t *)&lastActivitiesId, sizeof(lastActivitiesId));
     offset += sizeof(lastActivitiesId);
+    eep.write(offset, (uint8_t *)&lastActivityTimestamp, sizeof(lastActivityTimestamp));
+    offset += sizeof(lastActivityTimestamp);
     // last Activity
     TsActivity *lastActivity = getStravaLastActivity();
     eep.write(offset, (uint8_t *)&(lastActivity->deniv), sizeof(lastActivity->deniv));
@@ -173,6 +208,20 @@ void DataSave_SaveOTAData()
     eep.write(offset, (uint8_t *)&currentVersion, sizeof(currentVersion));
 }
 
+void DataSave_SaveStravaCredentials()
+{
+    DataSave_Init();
+    uint8_t ret = 0;
+    uint32_t offset = 600; // offset for Strava API credentials
+
+    ret = eep.write(offset, (uint8_t *)&clientId, sizeof(clientId));
+    offset += sizeof(clientId);
+    ret = eep.write(offset, (uint8_t *)clientSecret, sizeof(clientSecret));
+    offset += sizeof(clientSecret);
+    ret = eep.write(offset, (uint8_t *)apiRefreshToken, sizeof(apiRefreshToken));
+    offset += sizeof(apiRefreshToken);
+}
+
 uint8_t DataSave_SaveWifiCredentials()
 {
     DataSave_Init();
@@ -201,7 +250,7 @@ uint8_t DataSave_ResetOTA()
     DataSave_Init();
     uint8_t ret = 0;
     uint32_t offset = 500; // offset for OTA data
-    uint8_t versionZero = 0;
+    uint8_t versionZero = 1;
     ret = eep.write(offset, (uint8_t *)&versionZero, sizeof(versionZero));
     return ret;
 }
@@ -226,6 +275,9 @@ void DataSave_resetLastActivities()
 
     eep.write(offset, (uint8_t *)&lastActivitiesId, sizeof(lastActivitiesId));
     offset += sizeof(lastActivitiesId);
+    lastActivityTimestamp = 0;
+    eep.write(offset, (uint8_t *)&lastActivityTimestamp, sizeof(lastActivityTimestamp));
+    offset += sizeof(lastActivityTimestamp);
 
     // last Activity
     TsActivity *lastActivity = getStravaLastActivity();

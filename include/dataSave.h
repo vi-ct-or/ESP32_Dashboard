@@ -6,6 +6,8 @@ uint8_t DataSave_Init();
 void DataSave_RetrieveWifiCredentials();
 void DataSave_RetreiveLastActivity();
 void DataSave_RetrieveOTAData();
+void DataSave_RetrieveStravaCredentials();
+void DataSave_SaveStravaCredentials();
 void DataSave_SaveLastActivity();
 void DataSave_SaveOTAData();
 uint8_t DataSave_SaveWifiCredentials();

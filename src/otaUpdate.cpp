@@ -13,7 +13,12 @@
 
 // Define server details and file path
 #define HOST "raw.githubusercontent.com"
+#if BOARD_ID == 1
 #define PATH_FW "/vi-ct-or/ESP32_Dashboard/refs/heads/develop/.pio/build/esp32dev/firmware.bin"
+#elif BOARD_ID == 2
+#define PATH_FW "/vi-ct-or/ESP32_Dashboard/refs/heads/develop/.pio/build/seeed-xiao-esp32c3/firmware.bin"
+#endif
+
 #define PATH_Version "https://raw.githubusercontent.com/vi-ct-or/ESP32_Dashboard/refs/heads/develop/version.txt"
 #define PORT 443
 

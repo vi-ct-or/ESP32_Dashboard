@@ -12,15 +12,8 @@ void FactorySteup_InitEEPROM()
     // Initialize EEPROM
     DataSave_EraseEEPROM();
     DataSave_SaveWifiCredentials();
+    DataSave_SaveStravaCredentials();
     DataSave_ResetOTA();
-
-    // init clientID,...
-    preferences5.begin("stravaDB", false);
-    preferences5.putLong64("clientId", clientId);
-    preferences5.putString("clientSecret", clientSecret);
-    preferences5.putString("apiRefreshToken", apiRefreshToken);
-    preferences5.putLong("lastDayPopulate", 0);
-    preferences5.end();
 }
 
 void FactorySetup_ResetActivities()
