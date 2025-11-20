@@ -8,6 +8,7 @@
 #include "nvs.h"
 #include "displayEpaper.h"
 #include "dataSave.h"
+#include "factorySetup.h"
 
 #include "otaUpdate.h"
 
@@ -49,6 +50,7 @@ void updateFW()
             {
                 currentVersion = newVersion;
                 DataSave_SaveOTAData();
+                FactorySetup_ResetActivities();
             }
         }
         delay(1000);
