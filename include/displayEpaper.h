@@ -15,12 +15,14 @@ typedef enum eDisplayMessage
     DISPLAY_MESSAGE_REFRESH,
     DISPLAY_MESSAGE_TEMPLATE,
     DISPLAY_MESSAGE_NEW_ACTIVITY,
+    DISPLAY_MESSAGE_STATUS,
 } TeDisplayMessage;
 extern QueueHandle_t xQueueDisplay;
 extern bool hasBeenRefreshed;
 
 void initDisplay(void);
 void displayTemplate();
+void displayStatus();
 void displayTime(struct tm *now);
 void displayDate(struct tm *now);
 void displayStravaAllYear(struct tm *now);

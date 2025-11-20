@@ -8,6 +8,11 @@
 #include "polyline.h"
 #include "logo.h"
 #include <sys/time.h>
+#include "network.h"
+#include "Fonts/FreeSans9pt7b.h"
+#include "Fonts/FreeSans12pt7b.h"
+#include "Fonts/FreeSans18pt7b.h"
+#include "Fonts/FreeSans24pt7b.h"
 
 #include "displayEpaper.h"
 
@@ -23,6 +28,7 @@ int getMaxLng();
 int getMinLat();
 int getMinLng();
 void drawDateStr(const void *pv);
+void drawStatus(const void *pv);
 void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
 void drawYearDistance(const void *pv);
@@ -73,6 +79,11 @@ void displayTime(struct tm *now)
     display.drawPaged(drawTimeStr, (const void *)now);
     display.hibernate();
 }
+void displayStatus()
+{
+    display.drawPaged(drawStatus, 0);
+    display.hibernate();
+}
 void displayDate(struct tm *now)
 {
     display.drawPaged(drawDateStr, (const void *)now);
@@ -82,8 +93,8 @@ void displayDate(struct tm *now)
 void displayStravaAllYear(struct tm *now)
 {
     initDB();
-    display.drawPaged(drawYearTitle, (const void *)now);
-    // display.drawPaged(drawYearStr, 0);
+    // display.drawPaged(drawYearTitle, (const void *)now);
+    //  display.drawPaged(drawYearStr, 0);
     display.drawPaged(drawYearDistance, 0);
     display.drawPaged(drawYearTime, 0);
     display.drawPaged(drawYearDeniv, 0);
@@ -191,15 +202,39 @@ void drawText(int16_t x, int16_t y, const char *text)
     int16_t x1, y1;
     uint16_t w, h;
     display.getTextBounds(text, x, y, &x1, &y1, &w, &h);
+    Serial.printf("Text bounds: x1=%d, y1=%d, w=%d, h=%d\n", x1, y1, w, h);
     display.setPartialWindow(x1, y1, w, h);
     display.setCursor(x, y);
     display.print(text);
 }
 
+void drawStatus(const void *pv)
+{
+    display.setPartialWindow(150, 0, 150, 16);
+    if (isWifiConnected())
+    {
+        display.drawBitmap(280, 0, networkBitmap, 16, 12, GxEPD_BLACK);
+    }
+    else
+    {
+        display.drawBitmap(280, 0, noNetworkBitmap, 16, 12, GxEPD_BLACK);
+    }
+
+    display.drawRect(5, 2, 20, 12, GxEPD_BLACK);
+
+    display.fillRect(5, 3, 13, 10, GxEPD_BLACK);
+
+    // display.setTextSize(1);
+    // display.setCursor(245, 5);
+    // display.print("3.65V");
+}
+
 void drawTimeStr(const void *pv)
 {
     const struct tm *now = (const struct tm *)pv;
-    display.setTextSize(6);
+    display.setTextSize(2);
+    display.setFont(&FreeSans18pt7b);
+    display.setTextColor(GxEPD_BLACK);
     std::string timeStr;
     if (now->tm_hour < 10)
     {
@@ -212,7 +247,12 @@ void drawTimeStr(const void *pv)
     }
     timeStr += std::to_string(now->tm_min);
 
-    drawText(120, 10, timeStr.c_str());
+    // drawText(120, 70, timeStr.c_str());
+    display.setPartialWindow(120, 16, 300 - 120, 70);
+    // display.drawRect(120, 16, 300 - 120, 70, GxEPD_BLACK);
+    display.setCursor(124, 73);
+    display.print(timeStr.c_str());
+    display.setFont();
 }
 
 void drawDateStr(const void *pv)
@@ -301,17 +341,19 @@ void drawDateStr(const void *pv)
     nb = std::to_string(now->tm_mday);
 
     display.setTextSize(2);
-    display.setPartialWindow(0, 0, 120, 60);
+    uint8_t Yoffset = 8;
+
+    display.setPartialWindow(0, 0 + Yoffset, 120, 60);
     uint8_t x = 0;
     // day
     x = 113 / 2 - day.size() * 6;
-    display.setCursor(x, 0);
+    display.setCursor(x, 10 + Yoffset);
     display.print(day.c_str());
     // nb
     if (nb == "1")
     {
         x = 113 / 2 - nb.size() * 6 - 6;
-        display.setCursor(55, 18);
+        display.setCursor(55, 28 + Yoffset);
         display.setTextSize(1);
         display.print("er");
         display.setTextSize(2);
@@ -320,11 +362,11 @@ void drawDateStr(const void *pv)
     {
         x = 113 / 2 - nb.size() * 6;
     }
-    display.setCursor(x, 20);
+    display.setCursor(x, 30 + Yoffset);
     display.print(nb.c_str());
     // month
     x = 113 / 2 - month.size() * 6;
-    display.setCursor(x, 40);
+    display.setCursor(x, 50 + Yoffset);
     display.print(month.c_str());
 }
 
@@ -464,8 +506,8 @@ void drawYearDeniv(const void *pv)
 void drawYearTitle(const void *pv)
 {
     const struct tm *now = (const struct tm *)pv;
-    display.setPartialWindow(0, 60, 100, 23);
-    display.setCursor(10, 70);
+    display.setPartialWindow(0, 65, 100, 23);
+    display.setCursor(10, 74);
     display.setTextSize(2);
     display.print(std::to_string(now->tm_year + 1900).c_str());
 }
@@ -510,13 +552,13 @@ void drawStravaPolyline(const void *pv)
 {
     TsActivity *lastAct = getStravaLastActivity();
 
+    display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
     if (lastAct == NULL || lastAct->isFilled == false)
     {
         Serial.println("lastAct NULL");
         return;
     }
     Serial.println("lastAct not NULL");
-    display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
     if (!lastAct->polyline.empty())
     {
         decode(lastAct->polyline.c_str(), lastAct->polyline.size());
@@ -543,25 +585,18 @@ void drawStravaPolyline(const void *pv)
         {
             // only apply to y
             offsetV = (SQUARE_SIZE - pixelLargeur) / 2;
-            // offsetV = (SQUARE_SIZE - (int)(((float)((maxLat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - 1) / 2;
         }
         else
         {
             // only apply to x
             offsetH = (SQUARE_SIZE - pixelLargeur) / 2;
-            // offsetH = (int)(((float)((maxLng - minLng) * SQUARE_SIZE)) / (float)maxDiff) / 2;
         }
 
-        // Serial.print("offsetV = ");
-        // Serial.println(offsetV);
-        // Serial.print("offsetH = ");
-        // Serial.println(offsetH);
         int x, y, prevx = -1, prevy = -1;
 
-        // display.drawRect(150, 249, SQUARE_SIZE, SQUARE_SIZE + 1, GxEPD_BLACK);
         for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
         {
-            x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
+            x = 149 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
             y = 249 + SQUARE_SIZE - (int)(((float)((it->lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - offsetV;
             if (prevx != -1 && prevy != -1)
             {
@@ -581,6 +616,7 @@ void drawStravaPolyline(const void *pv)
 void drawLastActivity(const void *pv)
 {
     TsActivity *lastActivity = getStravaLastActivity();
+    display.setPartialWindow(1, 259, 149, 140);
     if (lastActivity == NULL || lastActivity->isFilled == false)
     {
         Serial.println("lastActivity NULL");
@@ -593,49 +629,22 @@ void drawLastActivity(const void *pv)
     float speed = 0.0;
     name = replaceSpecialCharacters(lastActivity->name);
     name = addNewLines(name, 11, 3, &lineNbTitle);
-    // name = lastActivity->name; // name
-    //  if (name.size() > 10)
-    //  {
-    //      name.insert(10, 1, '\n');
-    //      lineNbTitle = 2;
-    //      if (name[11] == ' ')
-    //      {
-    //          name.erase(11, 1);
-    //      }
-    //  }
-    //  if (name.size() > 20)
-    //  {
-    //      name.insert(20, 1, '\n');
-    //      lineNbTitle = 3;
-    //      if (name[21] == ' ')
-    //      {
-    //          name.erase(21, 1);
-    //      }
-    //  }
-    //  if (name.size() > 30)
-    //  {
-    //      name.resize(30);
-    //  }
 
     dist = std::to_string((float)lastActivity->dist / 100.0); // dist
     uint8_t dotIdx = dist.find('.');
     dist.resize(dotIdx + 3);
-    // dist += "km";
     dist.insert(0, 8 - dist.size(), ' ');
     secondsToHour(lastActivity->time, &duration); // duration
     duration.insert(0, 8 - duration.size(), ' ');
     deniv = std::to_string(lastActivity->deniv); // deniv
-    // deniv += "m d+";
     deniv.insert(0, 8 - deniv.size(), ' ');
 
     speed = ((float)(((float)lastActivity->dist / 100.0)) / (float)lastActivity->time * 3600.0);
 
-    display.setPartialWindow(1, 259, 149, 140);
     display.setTextSize(1);
     if (lastActivity->type == ACTIVITY_TYPE_RUN)
     {
         speedOrPace = speedToPace(speed);
-        // speedOrPace += "min/km";
         display.setCursor(86, 267 + (lineNbTitle + 4) * heightLetter2);
         display.print("min/km");
         speedOrPace.insert(0, 7 - speedOrPace.size(), ' ');
@@ -645,7 +654,6 @@ void drawLastActivity(const void *pv)
         speedOrPace = std::to_string(speed);
         dotIdx = speedOrPace.find('.');
         speedOrPace.resize(dotIdx + 3);
-        // speedOrPace += "km/h";
         display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2);
         display.print("km/h");
         speedOrPace.insert(0, 8 - speedOrPace.size(), ' ');
@@ -664,10 +672,6 @@ void drawLastActivity(const void *pv)
     display.setCursor(1, 260);
     display.setTextSize(2);
     display.print(displStr.c_str());
-    // for (uint16_t i = 259; i < 400; i = i + heightLetter2)
-    // {
-    //     display.drawLine(0, i, 140, i, GxEPD_BLACK);
-    // }
 
     display.setTextSize(1);
     display.setCursor(98, 267 + (lineNbTitle + 1) * heightLetter2);
@@ -676,7 +680,6 @@ void drawLastActivity(const void *pv)
     display.print("m d+");
 
     display.setCursor(83, 267);
-    // display.print("test");
 
     if (lastActivity->kudos > 0)
     {
@@ -685,8 +688,6 @@ void drawLastActivity(const void *pv)
         display.setCursor(22, 400 - 10);
         display.print(lastActivity->kudos);
     }
-
-    // drawText(1, 260, displStr.c_str());
 }
 
 void secondsToHour(time_t timestamp, std::string *out)
@@ -740,7 +741,7 @@ void drawLastTwelveMonths(const void *pv)
     tmp.tm_hour = 8;
     tmp.tm_min = 0;
     tmp.tm_sec = 0;
-    uint16_t maxMonth = 0;
+    uint16_t maxMonth = 1;
 
     for (uint8_t i = 0; i < 12; i++)
     {
@@ -974,12 +975,17 @@ void drawWeeks(const void *pv)
         {
             continue;
         }
+        if (maxWeek == 0)
+        {
+            maxWeek = 100; // avoid division by 0
+        }
+
         display.drawRect(x, y, w, -(weeks[i] * hMax / maxWeek), GxEPD_BLACK);
 
         tmTmp = *localtime(&timeTmp);
         getYearAndWeek(tmTmp, year, currentWeek);
 
-        if ((currentWeek % 5 == 0 || currentWeek == 1) /*&& x < 300 - 15*/)
+        if ((currentWeek % 5 == 0 || currentWeek == 1) && i != WEEK_NB - 1)
         {
             Serial.print("current week print : ");
             Serial.println(currentWeek);
@@ -1309,6 +1315,11 @@ void displayTaskFunction(void *parameter)
                 xQueueSend(xQueueDisplay, &msg, 0);
                 msg = DISPLAY_MESSAGE_POLYLINE;
                 xQueueSend(xQueueDisplay, &msg, 0);
+                break;
+
+            case DISPLAY_MESSAGE_STATUS:
+                Serial.println("status");
+                displayStatus();
                 break;
             default:
                 Serial.println("unknown msg");

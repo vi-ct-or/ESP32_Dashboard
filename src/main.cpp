@@ -9,7 +9,7 @@
 #include "strava.h"
 #include "displayEpaper.h"
 #include "network.h"
-#include "GPSTime.h"
+#include "RTCTime.h"
 #include "dataSave.h"
 #include "factorySetup.h"
 
@@ -47,12 +47,12 @@ void displayTaskFunction(void *parameter);
 bool readyToGoToSleep();
 
 uint16_t prevYear;
-Preferences preferences2;
 const int buttonPin = 0;
 esp_sleep_wakeup_cause_t wakeup_reason;
 bool goToSleep = false;
 bool GPSSync = false;
 bool rtcWasAvailable = true;
+bool firstPassage = true;
 
 uint8_t taskFinishedCnt = 0;
 
@@ -65,14 +65,36 @@ void setup()
   Serial.begin(9600);
   Serial.println("START");
 
+  mutex = xSemaphoreCreateMutex();
+
+  // delay(5000);
+  // testWifi();
+  // ESP.restart();
+  // while (true)
+  //   ;
+
+  // DataSave_SaveStravaCredentials();
+  // DataSave_RetrieveStravaCredentials();
+  // Serial.println("credentials saved");
+
+  // FactorySetup_ResetActivities();
+  // Serial.println("activities reset");
+  // // while (true)
+  // // {
+  // //   Serial.println("reset done");
+  // //   delay(10000);
+  // // }
+
   // nvs_flash_erase(); // erase the NVS partition and...
   // nvs_flash_init();  // initialize the NVS partition.
   // Serial.println("nvs erased");
 
   // FactorySteup_InitEEPROM();
-  // DataSave_RetrieveWifiCredentials();
+  DataSave_RetrieveWifiCredentials();
+  DataSave_RetrieveStravaCredentials();
   // Serial.println("eeprom erased");
 
+  // Serial.println("ok rrready");
   // while (true)
   //   ;
 
@@ -86,7 +108,6 @@ void setup()
   wakeup_reason = esp_sleep_get_wakeup_cause();
   // attachInterrupt(buttonPin, buttonInterrupt, FALLING);
 
-  // initGpsTime();
   initDisplay();
 
   if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
@@ -98,12 +119,18 @@ void setup()
     // FactorySetup_ResetActivities();
     // Serial.println("activities reset");
 
-    if (connectWifi(10000))
+    if (connectWifi(30000))
     {
       updateFW();
     }
+    else
+    {
+      while (!connectWifi(20000))
+      {
+        Serial.println("Retrying wifi connection");
+      }
+    }
 
-    displayTemplate();
     DataSave_RetreiveLastActivity();
     initDB();
 
@@ -130,41 +157,46 @@ void setup()
   xQueueStrava = xQueueCreate(10, sizeof(TeStravaMessage));
 
   // start task
-  xTaskCreatePinnedToCore(
+  xTaskCreate(
       TimeTaskFunction, /* Function to implement the task */
       "TimeTask",       /* Name of the task */
       8192,             /* Stack size in words */
       NULL,             /* Task input parameter */
       5,                /* Priority of the task */
-      &TimeTaskHandle,  /* Task handle. */
-      0);               /* Core where the task should run */
+      &TimeTaskHandle /* Task handle. */);
 
-  xTaskCreatePinnedToCore(
+  xTaskCreate(
       displayTaskFunction, /* Function to implement the task */
       "DisplayTask",       /* Name of the task */
       8192,                /* Stack size in words */
       &taskFinishedCnt,    /* Task input parameter */
       5,                   /* Priority of the task */
-      &DisplayTaskHandle,  /* Task handle. */
-      1);                  /* Core where the task should run */
-  xTaskCreatePinnedToCore(
+      &DisplayTaskHandle /* Task handle. */);
+  xTaskCreate(
       StravaTaskFunction, /* Function to implement the task */
       "StravaTask",       /* Name of the task */
       8192,               /* Stack size in words */
       &taskFinishedCnt,   /* Task input parameter */
       5,                  /* Priority of the task */
-      &StravaTaskHandle,  /* Task handle. */
-      1);                 /* Core where the task should run */
+      &StravaTaskHandle /* Task handle. */);
 }
 
 void loop()
 {
+  vTaskDelete(NULL);
 }
 
 void syncNTP()
 {
-  setenv("TZ", TZ_INFO, 1); // Set environment variable with your time zone - causes NTP call
-  tzset();
+  static bool syncCalled = false;
+
+  if (syncCalled == false)
+  {
+    Serial.println("syncNTP called");
+    syncCalled = true;
+    setenv("TZ", TZ_INFO, 1); // Set environment variable with your time zone - causes NTP call
+    tzset();
+  }
 }
 
 void cbSyncTime(struct timeval *tv)
@@ -176,8 +208,9 @@ void cbSyncTime(struct timeval *tv)
 
 void TimeTaskFunction(void *parameter)
 {
+  bool firstPassage = true;
   unsigned long timeToTimeTask = millis();
-  Serial.print("TimeTaskFunction started at ");
+  Serial.print("Start TimeTaskFunction : ");
   Serial.println(timeToTimeTask);
   TeDisplayMessage queueDisplayMessage;
   TeStravaMessage queueStravaMessage;
@@ -188,6 +221,12 @@ void TimeTaskFunction(void *parameter)
 
     if (getLocalTime(&timeinfo1))
     {
+      // if (firstPassage)
+      // {
+      //   timeToTimeTask = millis();
+      //   Serial.print("timtToTimeTask (first passage) : ");
+      //   Serial.println(timeToTimeTask);
+      // }
       if (timeinfo1.tm_min != prevMinute)
       {
         Serial.println("update minute");
@@ -201,7 +240,7 @@ void TimeTaskFunction(void *parameter)
         goToSleep = true;
         if (timeinfo1.tm_min == 00 /*|| timeinfo1.tm_min == 14 || timeinfo1.tm_min == 29 || timeinfo1.tm_min == 44*/)
         {
-          if (timeSource == TIME_SOURCE_NTP && connectWifi(10000))
+          if (timeSource == TIME_SOURCE_NTP && connectWifi(20000))
           {
             configTzTime(TZ_INFO, NTP_SERVER);
             sntp_restart();
@@ -231,13 +270,21 @@ void TimeTaskFunction(void *parameter)
       {
         // Serial.println("update month");
         // newMonthBegin(prevMonth, timeinfo1);
+
+        while (!xSemaphoreTake(mutex, portMAX_DELAY))
+        {
+          // wait for mutex to be available
+          Serial.println("waiting for mutex");
+        }
+        Preferences preferences;
+
+        preferences.begin("date", false);
+        prevMonth = timeinfo1.tm_mon;
+        preferences.putUShort("prevMonth", prevMonth);
+        preferences.end();
+        xSemaphoreGive(mutex);
         queueStravaMessage = STRAVA_MESSAGE_NEW_MONTH;
         xQueueSend(xQueueStrava, &queueStravaMessage, 0);
-
-        preferences2.begin("date", false);
-        prevMonth = timeinfo1.tm_mon;
-        preferences2.putUShort("prevMonth", prevMonth);
-        preferences2.end();
       }
       if (timeinfo1.tm_hour != prevHour)
       {
@@ -255,9 +302,10 @@ void TimeTaskFunction(void *parameter)
         xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
       }
     }
-    else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
+    else if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER && firstPassage == true)
     {
       // first boot
+      firstPassage = false;
       if (rtcAvailable())
       {
         rtcWasAvailable = true;
@@ -283,6 +331,8 @@ void TimeTaskFunction(void *parameter)
       else
       {
         rtcWasAvailable = false;
+        queueDisplayMessage = DISPLAY_MESSAGE_TEMPLATE;
+        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
       }
 
       queueDisplayMessage = DISPLAY_MESSAGE_LAST_ACTIVITY;
@@ -290,22 +340,46 @@ void TimeTaskFunction(void *parameter)
       queueDisplayMessage = DISPLAY_MESSAGE_POLYLINE;
       xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
 
-      if (connectWifi(10000))
+      if (connectWifi(20000))
       {
         goToSleep = false;
       }
       configTzTime(TZ_INFO, NTP_SERVER);
       timeSource = TIME_SOURCE_NTP;
+      while (!xSemaphoreTake(mutex, portMAX_DELAY))
+      {
+        // wait for mutex to be available
+        Serial.println("waiting for mutex");
+      }
+      Preferences preferences;
 
-      preferences2.begin("date", false);
-      prevMonth = preferences2.getUShort("prevMonth", 255);
+      preferences.begin("date", false);
+      prevMonth = preferences.getUShort("prevMonth", 255);
       if (prevMonth == 255)
       {
         prevMonth = timeinfo1.tm_mon;
-        preferences2.putUShort("prevMonth", prevMonth);
+        preferences.putUShort("prevMonth", prevMonth);
         // Serial.println("prevMonth saved in flash");
       }
-      preferences2.end();
+      preferences.end();
+      xSemaphoreGive(mutex);
+    }
+    else
+    {
+      if (!connectWifi(20000))
+      {
+        if (readyToGoToSleep())
+        {
+          // force deepsleep
+          Serial.println("No wifi, going to sleep");
+          esp_sleep_enable_timer_wakeup(150 * uS_TO_S_FACTOR);
+          esp_deep_sleep_start();
+        }
+      }
+      else
+      {
+        // syncNTP();
+      }
     }
 
     if (timeinfo1.tm_sec >= 58)
@@ -318,10 +392,6 @@ void TimeTaskFunction(void *parameter)
       // esp_task_wdt_reset();
       uint32_t sleepTime = (60 * uS_TO_S_FACTOR) - ((timeToTimeTask + 100) * mS_TO_S_FACTOR);
 
-      if (timeSource == TIME_SOURCE_GPS)
-      {
-        sleepTime = 54;
-      }
       adjustLocalTimeFromRtc();
       getLocalTime(&timeinfo1);
       if (timeinfo1.tm_sec < sleepTime - 1 && timeinfo1.tm_min == prevMinute)

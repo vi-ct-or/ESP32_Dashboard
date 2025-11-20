@@ -38,6 +38,7 @@ typedef enum eStravaMessage
 } TeStravaMessage;
 extern QueueHandle_t xQueueStrava;
 extern SemaphoreHandle_t xSemaphore;
+extern SemaphoreHandle_t mutex;
 
 #define DAYS_BY_YEAR 366
 #define NB_LAST_ACTIVITIES 20
@@ -45,14 +46,16 @@ extern SemaphoreHandle_t xSemaphore;
 extern bool newActivityUploaded;
 extern const uint16_t monthOffset[];
 extern uint64_t lastActivitiesId[NB_LAST_ACTIVITIES];
+extern time_t lastActivityTimestamp;
 
-void initDB();
+bool initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
 void populateDB(void);
 void newYearBegin();
 void newMonthBegin();
 void StravaTaskFunction(void *parameter);
 void resetDB();
+void test_NVM();
 
 TsActivity *getStravaLastActivity();
 
