@@ -115,6 +115,8 @@ void DataSave_RetreiveLastActivity()
     offset += sizeof(lastActivity->kudos);
     eep.read(offset, (uint8_t *)&lastActivity->isFilled, sizeof(lastActivity->isFilled));
     offset += sizeof(lastActivity->isFilled);
+    eep.read(offset, (uint8_t *)&lastActivity->isVisible, sizeof(lastActivity->isVisible));
+    offset += sizeof(lastActivity->isVisible);
     eep.read(offset, (uint8_t *)&lastActivity->name, sizeof(lastActivity->name));
     offset += sizeof(lastActivity->name);
     Serial.print("lastActivity.name : ");
@@ -192,6 +194,8 @@ void DataSave_SaveLastActivity()
     offset += sizeof(lastActivity->kudos);
     eep.write(offset, (uint8_t *)&lastActivity->isFilled, sizeof(lastActivity->isFilled));
     offset += sizeof(lastActivity->isFilled);
+    eep.write(offset, (uint8_t *)&lastActivity->isVisible, sizeof(lastActivity->isVisible));
+    offset += sizeof(lastActivity->isVisible);
     eep.write(offset, (uint8_t *)&lastActivity->name, sizeof(lastActivity->name));
     offset += sizeof(lastActivity->name);
     const char *polyline = lastActivity->polyline.c_str();
@@ -288,6 +292,7 @@ void DataSave_resetLastActivities()
     lastActivity->type = ACTIVITY_TYPE_UNKNOWN;
     lastActivity->kudos = 0;
     lastActivity->isFilled = false;
+    lastActivity->isVisible = false;
     memset(lastActivity->name, 0, sizeof(lastActivity->name));
     lastActivity->polyline.clear();
     eep.write(offset, (uint8_t *)&(lastActivity->deniv), sizeof(lastActivity->deniv));
@@ -304,6 +309,8 @@ void DataSave_resetLastActivities()
     offset += sizeof(lastActivity->kudos);
     eep.write(offset, (uint8_t *)&lastActivity->isFilled, sizeof(lastActivity->isFilled));
     offset += sizeof(lastActivity->isFilled);
+    eep.write(offset, (uint8_t *)&lastActivity->isVisible, sizeof(lastActivity->isVisible));
+    offset += sizeof(lastActivity->isVisible);
     eep.write(offset, (uint8_t *)&lastActivity->name, sizeof(lastActivity->name));
     offset += sizeof(lastActivity->name);
     const char *polyline = lastActivity->polyline.c_str();

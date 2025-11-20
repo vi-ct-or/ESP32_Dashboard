@@ -28,6 +28,7 @@ typedef struct sActivity
     char name[MAX_NAME_LENGTH];
     std::string polyline;
     uint32_t kudos;
+    bool isVisible;
 } TsActivity;
 
 typedef enum eStravaMessage
@@ -55,6 +56,8 @@ void newYearBegin();
 void newMonthBegin();
 void StravaTaskFunction(void *parameter);
 void resetDB();
+bool isLastActivityFromToday();
+uint32_t getCurrentStreakDays();
 void test_NVM();
 
 TsActivity *getStravaLastActivity();

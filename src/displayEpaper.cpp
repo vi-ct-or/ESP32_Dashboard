@@ -681,12 +681,36 @@ void drawLastActivity(const void *pv)
 
     display.setCursor(83, 267);
 
-    if (lastActivity->kudos > 0)
+    // kudos or lock
+    if (lastActivity->isVisible == false)
+    {
+        display.drawBitmap(1, 400 - 18, lock, 17, 17, GxEPD_BLACK);
+    }
+    else if (lastActivity->kudos > 0)
     {
         display.drawBitmap(1, 400 - 18, myKudosBitmap, 17, 17, GxEPD_BLACK);
         display.setTextSize(1);
-        display.setCursor(22, 400 - 10);
+        display.setCursor(22, 400 - 11);
         display.print(lastActivity->kudos);
+    }
+
+    // streak
+    uint32_t streak = getCurrentStreakDays();
+    Serial.print("Current streak : ");
+    Serial.println(streak);
+    if (streak >= 2)
+    {
+        if (isLastActivityFromToday())
+        {
+            display.drawBitmap(90, 400 - 18, flame, 17, 17, GxEPD_BLACK);
+        }
+        else
+        {
+            display.drawBitmap(90, 400 - 18, flame_disapearing, 17, 17, GxEPD_BLACK);
+        }
+        display.setTextSize(1);
+        display.setCursor(108, 400 - 11);
+        display.print(streak);
     }
 }
 

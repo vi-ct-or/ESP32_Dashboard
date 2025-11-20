@@ -372,7 +372,8 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
                     ACTIVITY_TYPE_UNKNOWN, // type
                     "",                    // name
                     "",                    // polyline
-                    0                      // kudos
+                    0,                     // kudos
+                    false                  // isVisible
                 };
 
                 if (i == NB_LAST_ACTIVITIES - 1)
@@ -403,6 +404,7 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
 
                     tmpActivity.kudos = array[i]["kudos_count"].as<uint32_t>();
                     tmpActivity.timestamp = activityStartTime;
+                    tmpActivity.isVisible = !array[i]["private"].as<bool>();
                     activityUpdated = lastActivityUpdated(&tmpActivity);
                     newActivityUploaded = newActivityUploaded || activityUpdated;
                     if (activityStartTime == lastActivity.timestamp)
@@ -519,6 +521,11 @@ bool lastActivityUpdated(TsActivity *newActivity)
     {
         l_ret = true;
         lastActivity.isFilled = newActivity->isFilled;
+    }
+    if (lastActivity.isVisible != newActivity->isVisible)
+    {
+        l_ret = true;
+        lastActivity.isVisible = newActivity->isVisible;
     }
     lastActivity.polyline = newActivity->polyline;
     if (hasBeenRefreshed)
@@ -923,6 +930,90 @@ bool isArrayZero(const TsDistDay *array, size_t size)
         }
     }
     return true;
+}
+
+bool isLeapYear(int year)
+{
+    if (year % 4 == 0)
+    {
+        if (year % 100 == 0 && year % 400 != 0)
+            return false;
+        else
+            return true;
+    }
+    return false;
+}
+
+bool isLastActivityFromToday()
+{
+    bool isFromToday = false;
+    struct tm tm;
+    if (!getLocalTime(&tm))
+    {
+        Serial.println("Failed to obtain time");
+        return false;
+    }
+    uint16_t todayIdx = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
+
+    if (loopYear[todayIdx].distRun > 0 || loopYear[todayIdx].distBike > 0)
+    {
+        isFromToday = true;
+    }
+
+    return isFromToday;
+}
+
+uint32_t getCurrentStreakDays()
+{
+    initDB();
+    struct tm tm;
+    if (!getLocalTime(&tm))
+    {
+        Serial.println("Failed to obtain time");
+        return 0;
+    }
+    uint16_t todayIdx = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
+    uint32_t streakDays = 0;
+
+    uint16_t yearToCkeckLeap = tm.tm_year + 1900;
+    if (todayIdx < 59)
+    {
+        yearToCkeckLeap--;
+    }
+    bool isLeap = isLeapYear(yearToCkeckLeap);
+    int16_t lastDayToCheck = todayIdx + 2;
+    if (isLeap)
+    {
+        lastDayToCheck = todayIdx + 1;
+    }
+
+    bool reachStartOfYear = false;
+    for (int16_t i = todayIdx - 1; i != todayIdx + 1; i--)
+    {
+        if (i < 0)
+        {
+            i = DAYS_BY_YEAR - 1;
+        }
+        if (isLeap == false && i == 59)
+        {
+            // skip feb 29
+            continue;
+        }
+
+        if (loopYear[i].distRun > 0 || loopYear[i].distBike > 0)
+        {
+            streakDays++;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if (loopYear[todayIdx].distRun > 0 || loopYear[todayIdx].distBike > 0)
+    {
+        streakDays++;
+    }
+    return streakDays;
 }
 
 void StravaTaskFunction(void *parameter)
