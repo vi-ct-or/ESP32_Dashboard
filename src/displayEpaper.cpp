@@ -706,7 +706,7 @@ void drawLastActivity(const void *pv)
         }
         else
         {
-            display.drawBitmap(90, 400 - 18, flame_disapearing, 17, 17, GxEPD_BLACK);
+            display.drawBitmap(90, 400 - 14, flame_little, 12, 12, GxEPD_BLACK);
         }
         display.setTextSize(1);
         display.setCursor(108, 400 - 11);
