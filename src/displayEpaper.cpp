@@ -49,6 +49,7 @@ void getYearAndWeek(tm TM, int &YYYY, int &WW);
 std::string speedToPace(double speedKmH);
 std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine);
 std::string replaceSpecialCharacters(const char *inputStr);
+void printMultiLine(const char *str, int16_t x, int16_t y, uint16_t lineHeight, uint8_t lineNb);
 
 RTC_DATA_ATTR bool prevGPSSync = false;
 RTC_DATA_ATTR bool firstTime = true;
@@ -645,7 +646,14 @@ void drawLastActivity(const void *pv)
     if (lastActivity->type == ACTIVITY_TYPE_RUN)
     {
         speedOrPace = speedToPace(speed);
-        display.setCursor(86, 267 + (lineNbTitle + 4) * heightLetter2);
+        if (lineNbTitle == 3)
+        {
+            display.setCursor(86, 267 + (lineNbTitle + 4) * heightLetter2 - heightLetter2 / 2);
+        }
+        else
+        {
+            display.setCursor(86, 267 + (lineNbTitle + 4) * heightLetter2);
+        }
         display.print("min/km");
         speedOrPace.insert(0, 7 - speedOrPace.size(), ' ');
     }
@@ -654,7 +662,14 @@ void drawLastActivity(const void *pv)
         speedOrPace = std::to_string(speed);
         dotIdx = speedOrPace.find('.');
         speedOrPace.resize(dotIdx + 3);
-        display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2);
+        if (lineNbTitle == 3)
+        {
+            display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2 - heightLetter2 / 2);
+        }
+        else
+        {
+            display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2);
+        }
         display.print("km/h");
         speedOrPace.insert(0, 8 - speedOrPace.size(), ' ');
     }
@@ -671,12 +686,28 @@ void drawLastActivity(const void *pv)
 
     display.setCursor(1, 260);
     display.setTextSize(2);
-    display.print(displStr.c_str());
+    printMultiLine(displStr.c_str(), 1, 260, 16, lineNbTitle);
+    // display.print(displStr.c_str());
 
     display.setTextSize(1);
-    display.setCursor(98, 267 + (lineNbTitle + 1) * heightLetter2);
+    if (lineNbTitle == 3)
+    {
+        display.setCursor(98, 267 + (lineNbTitle + 1) * heightLetter2 - heightLetter2 / 2);
+    }
+    else
+    {
+        display.setCursor(98, 267 + (lineNbTitle + 1) * heightLetter2);
+    }
     display.print("km");
-    display.setCursor(98, 267 + (lineNbTitle + 3) * heightLetter2);
+
+    if (lineNbTitle == 3)
+    {
+        display.setCursor(98, 267 + (lineNbTitle + 3) * heightLetter2 - heightLetter2 / 2);
+    }
+    else
+    {
+        display.setCursor(98, 267 + (lineNbTitle + 3) * heightLetter2);
+    }
     display.print("m d+");
 
     display.setCursor(83, 267);
@@ -711,6 +742,46 @@ void drawLastActivity(const void *pv)
         display.setTextSize(1);
         display.setCursor(108, 400 - 11);
         display.print(streak);
+    }
+}
+
+void printMultiLine(const char *str, int16_t x, int16_t y, uint16_t lineHeight, uint8_t lineNb)
+{
+    int16_t cursorX = x;
+    int16_t cursorY = y;
+    const char *ptr = str;
+
+    char lineBuffer[100];
+    while (*ptr != '\0')
+    {
+        int lineLength = 0;
+        // Read a line until newline or end of string
+        while (*ptr != '\0' && *ptr != '\n' && lineLength < sizeof(lineBuffer) - 1)
+        {
+            lineBuffer[lineLength++] = *ptr++;
+        }
+        lineBuffer[lineLength] = '\0'; // Null-terminate the line
+
+        // Print the line
+        display.setCursor(cursorX, cursorY);
+        display.print(lineBuffer);
+
+        // Move to next line
+        if (lineLength == 0 && lineNb == 3)
+        {
+            // Empty line => double new line =>
+            cursorY += lineHeight / 2;
+        }
+        else
+        {
+            cursorY += lineHeight;
+        }
+
+        // If we stopped at a newline, skip it
+        if (*ptr == '\n')
+        {
+            ptr++;
+        }
     }
 }
 
