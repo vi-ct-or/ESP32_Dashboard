@@ -1309,6 +1309,21 @@ std::string replaceSpecialCharacters(const char *inputStr)
     out.replace("Û", "U");
     out.replace("È", "E");
     out.replace("Ç", "C");
+
+    // remove emojis
+    i = 0;
+    while (i < out.length())
+    {
+        if ((uint8_t)out[i] >= 0x80)
+        {
+            out.remove(i, 1);
+        }
+        else
+        {
+            i++;
+        }
+    }
+
     std::string outStr = out.c_str();
 
     return outStr;
