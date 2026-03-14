@@ -723,7 +723,16 @@ void drawLastActivity(const void *pv)
         display.setTextSize(1);
         display.setCursor(22, 400 - 11);
         display.print(lastActivity->kudos);
+
+        if (lastActivity->kudos > prevKudos && prevKudos != 0)
+        {
+            // new kudos !
+            display.print("(+");
+            display.print(lastActivity->kudos - prevKudos);
+            display.print(")");
+        }
     }
+    prevKudos = lastActivity->kudos;
 
     // streak
     uint32_t streak = getCurrentStreakDays();
@@ -1310,19 +1319,27 @@ std::string replaceSpecialCharacters(const char *inputStr)
     out.replace("È", "E");
     out.replace("Ç", "C");
 
-    // remove emojis
-    i = 0;
-    while (i < out.length())
+    // print char and hex value
+    for (i = 0; i < out.length(); i++)
     {
-        if ((uint8_t)out[i] >= 0x80)
-        {
-            out.remove(i, 1);
-        }
-        else
-        {
-            i++;
-        }
+        Serial.print(out[i]);
+        Serial.print(" : ");
+        Serial.println((uint8_t)out[i], HEX);
     }
+
+    // // remove emojis
+    // i = 0;
+    // while (i < out.length())
+    // {
+    //     if ((uint8_t)out[i] >= 0x80)
+    //     {
+    //         out.remove(i, 1);
+    //     }
+    //     else
+    //     {
+    //         i++;
+    //     }
+    // }
 
     std::string outStr = out.c_str();
 

@@ -78,21 +78,22 @@ void setup()
   // Serial.println("credentials saved");
 
   // FactorySetup_ResetActivities();
-  //  Serial.println("activities reset");
-  //  // while (true)
-  //  // {
-  //  //   Serial.println("reset done");
-  //  //   delay(10000);
-  //  // }
+  // Serial.println("activities reset");
+  // while (true)
+  // {
+  //   Serial.println("reset done");
+  //   delay(10000);
+  // }
 
   // nvs_flash_erase(); // erase the NVS partition and...
   // nvs_flash_init();  // initialize the NVS partition.
   // Serial.println("nvs erased");
 
   // FactorySteup_InitEEPROM();
-  DataSave_RetrieveWifiCredentials();
-  DataSave_RetrieveStravaCredentials();
-  // Serial.println("eeprom erased");
+  // DataSave_SaveWifiCredentials();
+  // DataSave_RetrieveWifiCredentials();
+  // DataSave_RetrieveStravaCredentials();
+  // // Serial.println("eeprom erased");
 
   // Serial.println("ok rrready");
   // while (true)

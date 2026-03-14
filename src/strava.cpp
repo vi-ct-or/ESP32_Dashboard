@@ -15,12 +15,12 @@
 
 typedef struct sDistDay
 {
-    uint32_t distRun;
-    uint32_t distBike;
-    uint32_t timeRun;
-    uint32_t timeBike;
-    uint16_t climbRun;
-    uint16_t climbBike;
+    uint32_t distRun;   // in decimeters - first bit used to know if there is activity that day
+    uint32_t distBike;  // in decimeters
+    uint32_t timeRun;   // in seconds
+    uint32_t timeBike;  // in seconds
+    uint16_t climbRun;  // in decimeters
+    uint16_t climbBike; // in decimeters
 } TsDistDay;
 
 #define WEEK_IN_SECOND 604800U
@@ -44,6 +44,8 @@ struct tm timeinfo;
 RTC_DATA_ATTR bool newActivityUploaded;
 RTC_DATA_ATTR bool activityUpdated = false;
 RTC_DATA_ATTR TsActivity lastActivity;
+RTC_DATA_ATTR uint16_t prevKudos = 0;
+RTC_DATA_ATTR uint16_t prevPrevKudos = 0;
 
 QueueHandle_t xQueueStrava;
 SemaphoreHandle_t xSemaphore = NULL;
@@ -348,10 +350,7 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
             {
                 Serial.print("i = ");
                 Serial.println(i);
-                if (array[i]["trainer"].as<bool>() == true)
-                {
-                    continue;
-                }
+
                 struct tm tm;
                 timeStringToTm(array[i]["start_date_local"].as<const char *>(), &tm);
                 TeActivityType activityType = getActivityType(array[i]["type"].as<const char *>());
@@ -431,6 +430,13 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
                 }
                 Serial.println("added to year array");
                 uint16_t dayIdx = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
+                // save that there is an activity this day
+                loopYear[dayIdx].distRun |= 0x80000000;
+                if (array[i]["trainer"].as<bool>() == true)
+                {
+                    // ignore trainer activities in total stats
+                    continue;
+                }
                 switch (activityType)
                 {
                 case ACTIVITY_TYPE_BIKE:
@@ -507,6 +513,13 @@ bool lastActivityUpdated(TsActivity *newActivity)
         l_ret = true;
         lastActivity.kudos = newActivity->kudos;
     }
+    if (lastActivity.kudos == prevKudos && prevKudos != prevPrevKudos)
+    {
+        // prevKudos is updated later in drawLastActivity
+        l_ret = true;
+        prevPrevKudos = prevKudos;
+    }
+
     if (lastActivity.type != newActivity->type)
     {
         l_ret = true;
@@ -732,11 +745,11 @@ void printDB(uint16_t nbDays)
             Serial.print(i);
             Serial.print(" -> ");
             Serial.print("loop Year : Run ");
-            Serial.print(loopYear[i].distRun / 10000);
+            Serial.print((loopYear[i].distRun & 0x7FFFFFFF) / 10000);
             Serial.print(" Bike ");
             Serial.print(loopYear[i].distBike / 10000);
             Serial.println(" ; ");
-            totalMon += loopYear[i].distBike + loopYear[i].distRun;
+            totalMon += loopYear[i].distBike + loopYear[i].distRun & 0x7FFFFFFF;
         }
         Serial.print("Total : ");
         Serial.println(totalMon / 10000);
@@ -795,7 +808,11 @@ uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t sta
             }
             else if (dataType == DATA_TYPE_DISTANCE)
             {
-                ret += loopYear[i].distRun;
+                if ((loopYear[i].distRun & 0x80000000) != 0)
+                {
+
+                    ret += loopYear[i].distRun & 0x7FFFFFFF;
+                }
             }
             else if (dataType == DATA_TYPE_TIME)
             {
@@ -955,7 +972,7 @@ bool isLastActivityFromToday()
     }
     uint16_t todayIdx = monthOffset[tm.tm_mon] + tm.tm_mday - 1;
 
-    if (loopYear[todayIdx].distRun > 0 || loopYear[todayIdx].distBike > 0)
+    if ((loopYear[todayIdx].distRun & 0x80000000) == 0x80000000)
     {
         isFromToday = true;
     }
@@ -987,20 +1004,22 @@ uint32_t getCurrentStreakDays()
         lastDayToCheck = todayIdx + 1;
     }
 
-    bool reachStartOfYear = false;
     for (int16_t i = todayIdx - 1; i != todayIdx + 1; i--)
     {
+        Serial.print("checking day index : ");
+        Serial.println(i);
+        Serial.println(loopYear[i].distRun & 0x80000000);
         if (i < 0)
         {
             i = DAYS_BY_YEAR - 1;
         }
         if (isLeap == false && i == 59)
         {
-            // skip feb 29
+            // skip feb 29 in non leap year
             continue;
         }
 
-        if (loopYear[i].distRun > 0 || loopYear[i].distBike > 0)
+        if ((loopYear[i].distRun & (uint32_t)0x80000000) == (uint32_t)0x80000000)
         {
             streakDays++;
         }
@@ -1009,7 +1028,7 @@ uint32_t getCurrentStreakDays()
             break;
         }
     }
-    if (loopYear[todayIdx].distRun > 0 || loopYear[todayIdx].distBike > 0)
+    if ((loopYear[todayIdx].distRun & 0x80000000) == 0x80000000)
     {
         streakDays++;
     }
