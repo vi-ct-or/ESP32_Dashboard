@@ -29,6 +29,7 @@ int getMinLat();
 int getMinLng();
 void drawDateStr(const void *pv);
 void drawStatus(const void *pv);
+void drawTemperature(const void *pv);
 void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
 void drawYearDistance(const void *pv);
@@ -149,6 +150,12 @@ void displayStravaPolyline()
     display.hibernate();
 }
 
+void displayTemperature()
+{
+    display.drawPaged(drawTemperature, 0);
+    display.hibernate();
+}
+
 int getMaxLat()
 {
     int maxLat = -1800000;
@@ -211,7 +218,7 @@ void drawText(int16_t x, int16_t y, const char *text)
 
 void drawStatus(const void *pv)
 {
-    display.setPartialWindow(150, 0, 150, 16);
+    display.setPartialWindow(270, 0, 30, 16);
     if (isWifiConnected())
     {
         display.drawBitmap(280, 0, networkBitmap, 16, 12, GxEPD_BLACK);
@@ -228,6 +235,22 @@ void drawStatus(const void *pv)
     // display.setTextSize(1);
     // display.setCursor(245, 5);
     // display.print("3.65V");
+}
+
+void drawTemperature(const void *pv)
+{
+
+    display.setPartialWindow(150, 200, 70, 16);
+
+    display.setTextSize(1);
+
+    display.setCursor(150, 16);
+    display.print(airTemperature);
+    display.print("C");
+
+    display.setCursor(200, 10);
+    display.print(waterTemperature);
+    display.print("C");
 }
 
 void drawTimeStr(const void *pv)
@@ -1447,6 +1470,11 @@ void displayTaskFunction(void *parameter)
             case DISPLAY_MESSAGE_STATUS:
                 Serial.println("status");
                 displayStatus();
+                break;
+
+            case DISPLAY_MESSAGE_TEMPERATURE:
+                Serial.println("temperature");
+                displayTemperature();
                 break;
             default:
                 Serial.println("unknown msg");

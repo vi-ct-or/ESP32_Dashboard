@@ -31,9 +31,8 @@ typedef struct sDistDay
 const uint16_t monthOffset[] = {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366};
 
 const char activitiesUrl[] = "https://www.strava.com/api/v3/athlete/activities?";
-// struct tm tm;
-// TsDistDay thisYear[DAYS_BY_YEAR];
-// TsDistDay lastYear[DAYS_BY_YEAR];
+const char weatherUrl[] = "https://www.cvsevrier.fr/wp-json/gm/v1/wind";
+
 TsDistDay loopYear[DAYS_BY_YEAR];
 uint64_t lastActivitiesId[NB_LAST_ACTIVITIES];
 time_t lastActivityTimestamp;
@@ -46,6 +45,8 @@ RTC_DATA_ATTR bool activityUpdated = false;
 RTC_DATA_ATTR TsActivity lastActivity;
 RTC_DATA_ATTR uint16_t prevKudos = 0;
 RTC_DATA_ATTR uint16_t prevPrevKudos = 0;
+RTC_DATA_ATTR int airTemperature;
+RTC_DATA_ATTR int waterTemperature;
 
 QueueHandle_t xQueueStrava;
 SemaphoreHandle_t xSemaphore = NULL;
@@ -64,6 +65,7 @@ void addIdLastActivities(uint64_t id);
 bool isIdLastActivities(uint64_t id);
 void sendMessage(std::string msg);
 bool isArrayZero(const TsDistDay *array, size_t size);
+void getWeather(int *airTemp, int *waterTemp);
 
 void test_NVM()
 {
@@ -129,6 +131,39 @@ void sendMessage(std::string msg)
         int httpResponseCode = http.GET();
         Serial.println("HTTP Response code: " + String(httpResponseCode));
         http.end(); // Free resources
+    }
+}
+
+void getWeather(int *airTemp, int *waterTemp)
+{
+
+    HTTPClient http;
+
+    http.begin(weatherUrl);
+
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode == 200)
+    {
+        String resp = http.getString();
+        // const char *resp = http.getString().c_str();
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, resp.c_str());
+        if (error)
+        {
+            Serial.print("GET WEATHER deserializeJson() returned ");
+            Serial.println(error.c_str());
+        }
+        else
+        {
+            *airTemp = doc["temperature"];
+            *waterTemp = doc["water"];
+
+            Serial.print("Air temperature : ");
+            Serial.println(*airTemp);
+            Serial.print("Water temperature : ");
+            Serial.println(*waterTemp);
+        }
     }
 }
 
@@ -1067,9 +1102,7 @@ void StravaTaskFunction(void *parameter)
                 Serial.println("populate");
                 if (connectWifi(20000))
                 {
-                    // esp_task_wdt_reset();
                     populateDB();
-                    // esp_task_wdt_reset();
                 }
                 if (newActivityUploaded)
                 {
@@ -1091,6 +1124,27 @@ void StravaTaskFunction(void *parameter)
                 messageDisplay = DISPLAY_MESSAGE_STATUS;
                 xQueueSend(xQueueDisplay, &messageDisplay, 0);
                 break;
+
+            case STRAVA_MESSAGE_GET_TEMPERATURE:
+            {
+                int prevAirTemp = airTemperature;
+                int prevWaterTemp = waterTemperature;
+
+                Serial.println("get temperature");
+
+                if (connectWifi(10000))
+                {
+                    getWeather(&airTemperature, &waterTemperature);
+                }
+
+                if (airTemperature != prevAirTemp || waterTemperature != prevWaterTemp)
+                {
+                    messageDisplay = DISPLAY_MESSAGE_TEMPERATURE;
+                    xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                }
+                break;
+            }
+
             default:
                 break;
             }

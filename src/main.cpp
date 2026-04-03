@@ -296,6 +296,8 @@ void TimeTaskFunction(void *parameter)
         // here populate
         queueStravaMessage = STRAVA_MESSAGE_POPULATE;
         xQueueSend(xQueueStrava, &queueStravaMessage, 0);
+        queueStravaMessage = STRAVA_MESSAGE_GET_TEMPERATURE;
+        xQueueSend(xQueueStrava, &queueStravaMessage, 0);
       }
       if (!rtcWasAvailable)
       {
