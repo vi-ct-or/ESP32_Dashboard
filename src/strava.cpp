@@ -135,6 +135,7 @@ void sendMessage(std::string msg)
 void resetDB()
 {
     Preferences preferences;
+    sendMessage("resetDB");
 
     for (uint16_t i = 0; i < DAYS_BY_YEAR; i++)
     {
@@ -184,6 +185,7 @@ bool initDB()
                 sendMessage("error%20read%20stravaDB");
 
                 preferences.end();
+                sendMessage("l_bytesRead%20!=%20sizeof(loopYear),%20resetting%20stravaDB");
                 resetDB();
                 preferences.begin("stravaDB", true);
             }
@@ -380,8 +382,9 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
                     lastActivityTimestamp = activityStartTime;
                 }
 
-                if (activityStartTime >= lastActivity.timestamp && isLast && i == 0)
+                if (/*activityStartTime >= lastActivity.timestamp &&*/ isLast && i == 0)
                 {
+                    Serial.println("process last activity");
                     // this is the last activity, update lastActivity
                     tmpActivity.isFilled = true;
 
@@ -655,6 +658,12 @@ void populateDB(void)
                 preferences.clear();
                 preferences.putLong("lastDayPopulate", lastDayPopulate);
                 preferences.putLong64("lastActivityId", lastActivityId);
+                if (isArrayZero(loopYear, DAYS_BY_YEAR))
+                {
+                    Serial.println("loopYear is empty, resetting");
+                    sendMessage("loopYears%20is%20empty%20during%20populateDB");
+                }
+
                 size_t l_writtenBytes = preferences.putBytes("loopYear", loopYear, sizeof(loopYear));
                 if (l_writtenBytes != sizeof(loopYear))
                 {

@@ -251,8 +251,8 @@ void TimeTaskFunction(void *parameter)
         }
         if ((timeinfo1.tm_hour == REFRESH_HOUR) && timeinfo1.tm_min == 0 && timeinfo1.tm_sec <= 48)
         {
-          DataSave_RetreiveLastActivity();
           initDB();
+          DataSave_RetreiveLastActivity();
           queueDisplayMessage = DISPLAY_MESSAGE_REFRESH;
           xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
         }
@@ -289,6 +289,7 @@ void TimeTaskFunction(void *parameter)
       }
       if (timeinfo1.tm_hour != prevHour)
       {
+        initDB();
         Serial.println("update hour");
         prevHour = timeinfo1.tm_hour;
 
