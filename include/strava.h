@@ -50,6 +50,8 @@ extern const uint16_t monthOffset[];
 extern uint64_t lastActivitiesId[NB_LAST_ACTIVITIES];
 extern time_t lastActivityTimestamp;
 extern uint16_t prevKudos;
+extern int airTemperature;
+extern int waterTemperature;
 
 bool initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
