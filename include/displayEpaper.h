@@ -16,6 +16,7 @@ typedef enum eDisplayMessage
     DISPLAY_MESSAGE_TEMPLATE,
     DISPLAY_MESSAGE_NEW_ACTIVITY,
     DISPLAY_MESSAGE_STATUS,
+    DISPLAY_MESSAGE_TEMPERATURE,
 } TeDisplayMessage;
 extern QueueHandle_t xQueueDisplay;
 extern bool hasBeenRefreshed;
