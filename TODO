@@ -9,8 +9,16 @@ bearerToken to put in RTC RAM ?
 - date disapearing OK
 - center month and day OK
 - add "é, ..." in font : some ok
-- check last week for new activities ok ? 
-- polyline disapearing ok ?
+- check last week for new activities ok
+- polyline disapearing ok
 - put data in spi flash ok
 - erase all months between lastDayPopulate and now ok ?
 - display at the beginnig at first boot
+- take the sooner : 20th activity timestamp or 2 previous weeks -> not that but OK
+- add activity streak in days ok
+- add visibility of activity (lock when only you) ok
+- shift other lines of last activity title by 1px OK
+- remove emojis in title
+- add KOM count of the activity
+- add kudos count diff between hours (check what happen when no connection)
+- add "â" handling
