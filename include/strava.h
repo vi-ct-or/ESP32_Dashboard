@@ -36,6 +36,7 @@ typedef enum eStravaMessage
     STRAVA_MESSAGE_NONE,
     STRAVA_MESSAGE_NEW_MONTH,
     STRAVA_MESSAGE_POPULATE,
+    STRAVA_MESSAGE_GET_TEMPERATURE,
 } TeStravaMessage;
 extern QueueHandle_t xQueueStrava;
 extern SemaphoreHandle_t xSemaphore;
@@ -49,6 +50,8 @@ extern const uint16_t monthOffset[];
 extern uint64_t lastActivitiesId[NB_LAST_ACTIVITIES];
 extern time_t lastActivityTimestamp;
 extern uint16_t prevKudos;
+extern int airTemperature;
+extern int waterTemperature;
 
 bool initDB();
 uint32_t getTotal(TeActivityType activityType, TeDataType dataType, uint16_t startDay, uint16_t endDay);
