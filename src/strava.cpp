@@ -45,8 +45,11 @@ RTC_DATA_ATTR bool activityUpdated = false;
 RTC_DATA_ATTR TsActivity lastActivity;
 RTC_DATA_ATTR uint16_t prevKudos = 0;
 RTC_DATA_ATTR uint16_t prevPrevKudos = 0;
-RTC_DATA_ATTR int airTemperature;
-RTC_DATA_ATTR int waterTemperature;
+RTC_DATA_ATTR float airTemperature;
+RTC_DATA_ATTR float waterTemperature;
+uint32_t tempDataOldness;
+RTC_DATA_ATTR uint32_t sunriseTimestamp;
+RTC_DATA_ATTR uint32_t sunsetTimestamp;
 
 QueueHandle_t xQueueStrava;
 SemaphoreHandle_t xSemaphore = NULL;
@@ -65,7 +68,7 @@ void addIdLastActivities(uint64_t id);
 bool isIdLastActivities(uint64_t id);
 void sendMessage(std::string msg);
 bool isArrayZero(const TsDistDay *array, size_t size);
-void getWeather(int *airTemp, int *waterTemp);
+void getWeather(float *airTemp, float *waterTemp);
 
 void test_NVM()
 {
@@ -134,7 +137,7 @@ void sendMessage(std::string msg)
     }
 }
 
-void getWeather(int *airTemp, int *waterTemp)
+void getWeather(float *airTemp, float *waterTemp, uint32_t *dataAge)
 {
 
     HTTPClient http;
@@ -156,13 +159,39 @@ void getWeather(int *airTemp, int *waterTemp)
         }
         else
         {
-            *airTemp = doc["temperature"];
-            *waterTemp = doc["water"];
+            if (!doc["current"]["temp"].isNull())
+            {
+
+                *airTemp = doc["current"]["temp"].as<float>();
+            }
+            else
+            {
+                *airTemp = 99.0;
+            }
+
+            if (!doc["water"].isNull())
+            {
+
+                *waterTemp = doc["water"].as<float>();
+            }
+            else
+            {
+                *waterTemp = 99.0;
+            }
+
+            uint32_t timestamp = doc["current"]["dt"].as<uint32_t>();
+
+            sunriseTimestamp = doc["current"]["sunrise"].as<uint32_t>();
+            sunsetTimestamp = doc["current"]["sunset"].as<uint32_t>();
+
+            *dataAge = time(NULL) - timestamp;
 
             Serial.print("Air temperature : ");
             Serial.println(*airTemp);
             Serial.print("Water temperature : ");
             Serial.println(*waterTemp);
+            Serial.print("Weather data timestamp diff : ");
+            Serial.println(*dataAge);
         }
     }
 }
@@ -230,6 +259,7 @@ bool initDB()
                 preferences.end();
                 resetDB();
                 sendMessage("loopYears%20is%20empty,%20resetting%20stravaDB");
+                resetClock();
                 ESP.restart();
             }
 
@@ -390,7 +420,7 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
 
                 struct tm tm;
                 timeStringToTm(array[i]["start_date_local"].as<const char *>(), &tm);
-                TeActivityType activityType = getActivityType(array[i]["type"].as<const char *>());
+                TeActivityType activityType = getActivityType(array[i]["sport_type"].as<const char *>());
                 time_t activityStartTime = mktime(&tm);
                 time_t movingTime = array[i]["moving_time"].as<int>();
                 uint64_t activityId = array[i]["id"].as<uint64_t>();
@@ -804,15 +834,34 @@ TeActivityType getActivityType(const char *str)
 {
     TeActivityType ret = ACTIVITY_TYPE_UNKNOWN;
     const char strRun[] = "Run";
-    const char strBike[] = "Ride";
+    const char strTrail[] = "TrailRun";
 
-    if (strcmp(str, strRun) == 0)
+    const char strBike[] = "Ride";
+    const char strGravel[] = "GravelRide";
+    const char strMTB[] = "MountainBikeRide";
+
+    const char strSwim[] = "Swim";
+
+    const char strBadminton[] = "Badminton";
+    const char strPadel[] = "Padel";
+    const char strTableTennis[] = "TableTennis";
+    const char strTennis[] = "Tennis";
+
+    if (strcmp(str, strRun) == 0 || strcmp(str, strTrail) == 0)
     {
         ret = ACTIVITY_TYPE_RUN;
     }
-    else if (strcmp(str, strBike) == 0)
+    else if (strcmp(str, strBike) == 0 || strcmp(str, strGravel) == 0 || strcmp(str, strMTB) == 0)
     {
         ret = ACTIVITY_TYPE_BIKE;
+    }
+    else if (strcmp(str, strSwim) == 0)
+    {
+        ret = ACTIVITY_TYPE_SWIM;
+    }
+    else if (strcmp(str, strBadminton) == 0 || strcmp(str, strPadel) == 0 || strcmp(str, strTableTennis) == 0 || strcmp(str, strTennis) == 0)
+    {
+        ret = ACTIVITY_TYPE_RACKET;
     }
 
     return ret;
@@ -1123,27 +1172,40 @@ void StravaTaskFunction(void *parameter)
                 }
                 messageDisplay = DISPLAY_MESSAGE_STATUS;
                 xQueueSend(xQueueDisplay, &messageDisplay, 0);
+
+#ifdef LOCATION
+                messageDisplay = DISPLAY_MESSAGE_SUNSET_SUNRISE;
+                xQueueSend(xQueueDisplay, &messageDisplay, 0);
+#endif
+
                 break;
 
             case STRAVA_MESSAGE_GET_TEMPERATURE:
             {
-                int prevAirTemp = airTemperature;
-                int prevWaterTemp = waterTemperature;
+                float prevAirTemp = airTemperature;
+                float prevWaterTemp = waterTemperature;
 
                 Serial.println("get temperature");
+                tempDataOldness = 3601; // if no wifi, force no data display
 
                 if (connectWifi(10000))
                 {
-                    getWeather(&airTemperature, &waterTemperature);
+                    getWeather(&airTemperature, &waterTemperature, &tempDataOldness);
                 }
 
-                if (airTemperature != prevAirTemp || waterTemperature != prevWaterTemp)
+                if ((airTemperature != prevAirTemp || waterTemperature != prevWaterTemp))
                 {
                     messageDisplay = DISPLAY_MESSAGE_TEMPERATURE;
                     xQueueSend(xQueueDisplay, &messageDisplay, 0);
                 }
                 break;
             }
+
+            case STRAVA_MESSAGE_RESET_ALL:
+                Serial.println("reset all");
+                resetDB();
+                ESP.restart();
+                break;
 
             default:
                 break;

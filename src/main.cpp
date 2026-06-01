@@ -45,6 +45,7 @@ TickType_t TimeTaskDelay = pdMS_TO_TICKS(100);
 void TimeTaskFunction(void *parameter);
 void displayTaskFunction(void *parameter);
 bool readyToGoToSleep();
+void interruptCallback();
 
 uint16_t prevYear;
 const int buttonPin = 0;
@@ -54,6 +55,8 @@ bool GPSSync = false;
 bool rtcWasAvailable = true;
 bool firstPassage = true;
 
+uint8_t buttonPressedCnt = 0;
+
 uint8_t taskFinishedCnt = 0;
 
 // static void IRAM_ATTR buttonInterrupt(void);
@@ -62,8 +65,24 @@ void cbSyncTime(struct timeval *tv);
 
 void setup()
 {
+  time_t timeToSetup = 0;
+  attachInterrupt(digitalPinToInterrupt(0), interruptCallback, FALLING);
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0)
+  {
+    timeToSetup = millis();
+    buttonPressedCnt++;
+  }
+  xQueueDisplay = xQueueCreate(10, sizeof(TeDisplayMessage));
+  xQueueStrava = xQueueCreate(10, sizeof(TeStravaMessage));
+
   Serial.begin(9600);
   Serial.println("START");
+  Serial.print("Time to setup : ");
+  Serial.println(timeToSetup);
+
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0); // wake up when button is pressed (active low)
 
   mutex = xSemaphoreCreateMutex();
 
@@ -111,7 +130,7 @@ void setup()
 
   initDisplay();
 
-  if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
+  if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER && wakeup_reason != ESP_SLEEP_WAKEUP_EXT0)
   {
     // first boot
     // Serial.println("wakeup after reset");
@@ -154,9 +173,6 @@ void setup()
 
   xSemaphore = xSemaphoreCreateCounting(3, 0);
 
-  xQueueDisplay = xQueueCreate(10, sizeof(TeDisplayMessage));
-  xQueueStrava = xQueueCreate(10, sizeof(TeStravaMessage));
-
   // start task
   xTaskCreate(
       TimeTaskFunction, /* Function to implement the task */
@@ -185,6 +201,31 @@ void setup()
 void loop()
 {
   vTaskDelete(NULL);
+}
+
+void interruptCallback()
+{
+  static uint32_t lastCall = 0;
+  time_t now = millis();
+  if (now - lastCall < 70)
+  {
+    // debounce
+    return;
+  }
+  if (now - lastCall > 2000)
+  {
+    // reset counter if more than 2s between 2 presses
+    buttonPressedCnt = 0;
+  }
+
+  buttonPressedCnt++;
+  if (buttonPressedCnt >= 5)
+  {
+    TeStravaMessage queueStravaMessage = STRAVA_MESSAGE_RESET_ALL;
+    xQueueSend(xQueueStrava, &queueStravaMessage, 0);
+    buttonPressedCnt = 0;
+  }
+  lastCall = now;
 }
 
 void syncNTP()
@@ -296,8 +337,10 @@ void TimeTaskFunction(void *parameter)
         // here populate
         queueStravaMessage = STRAVA_MESSAGE_POPULATE;
         xQueueSend(xQueueStrava, &queueStravaMessage, 0);
+#ifdef LOCATION
         queueStravaMessage = STRAVA_MESSAGE_GET_TEMPERATURE;
         xQueueSend(xQueueStrava, &queueStravaMessage, 0);
+#endif
       }
       if (!rtcWasAvailable)
       {

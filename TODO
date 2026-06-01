@@ -21,4 +21,7 @@ bearerToken to put in RTC RAM ?
 - remove emojis in title
 - add KOM count of the activity
 - add kudos count diff between hours (check what happen when no connection)
-- add "â" handling
+- add "â" and "°" handling
+- add logo when no polyline OK (for swim, bike, run, racket sports)
+- reset when pressing 5 time on boot OK
+- sunset wheel wip
