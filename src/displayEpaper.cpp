@@ -30,6 +30,7 @@ int getMinLng();
 void drawDateStr(const void *pv);
 void drawStatus(const void *pv);
 void drawTemperature(const void *pv);
+void drawLoadingCircle(const void *pv);
 void drawTimeStr(const void *pv);
 void drawYearStr(const void *pv);
 void drawYearDistance(const void *pv);
@@ -156,6 +157,12 @@ void displayTemperature()
     display.hibernate();
 }
 
+void displaySunsetSunrise()
+{
+    display.drawPaged(drawLoadingCircle, 0);
+    display.hibernate();
+}
+
 int getMaxLat()
 {
     int maxLat = -1800000;
@@ -239,18 +246,121 @@ void drawStatus(const void *pv)
 
 void drawTemperature(const void *pv)
 {
+    uint8_t xOffsetFactor = 3;
+    display.setPartialWindow(100, 0, 170, 16);
 
-    display.setPartialWindow(150, 200, 70, 16);
+    if (tempDataOldness > 3600)
+    {
+        // data is old, display "N/A"
+        display.setTextSize(1);
+        display.setCursor(150, 0);
+        display.print("N/A");
+        return;
+    }
 
-    display.setTextSize(1);
+    display.setTextSize(2);
 
-    display.setCursor(150, 16);
-    display.print(airTemperature);
-    display.print("C");
+    if (airTemperature < 98.0)
+    {
 
-    display.setCursor(200, 10);
-    display.print(waterTemperature);
-    display.print("C");
+        // air Temperature
+        display.setCursor(100, 0);
+        display.print(airTemperature, 1);
+        display.setTextSize(1);
+
+        if (airTemperature < -9.9)
+        {
+            xOffsetFactor = 5;
+        }
+        else if (airTemperature < 0.0 || airTemperature > 9.9)
+        {
+            xOffsetFactor = 4;
+        }
+
+        display.setCursor(100 + xOffsetFactor * 12, -2);
+        display.print("o");
+        display.setCursor(100 + xOffsetFactor * 12 + 4, 6);
+        display.print("C");
+    }
+
+    // data oldness
+    // display.setTextSize(1);
+    // display.setCursor(185, 0);
+    // display.print(tempDataOldness);
+    // display.print("s");
+
+    // water Temperature
+    xOffsetFactor = 3;
+
+    if (waterTemperature < 98.0)
+    {
+
+        display.setTextSize(2);
+        display.setCursor(200, 0);
+        display.print(waterTemperature, 1);
+        display.setTextSize(1);
+        if (waterTemperature < -9.9)
+        {
+            xOffsetFactor = 5;
+        }
+        else if (waterTemperature < 0.0 || waterTemperature > 9.9)
+        {
+            xOffsetFactor = 4;
+        }
+
+        display.setCursor(200 + xOffsetFactor * 12, -2);
+        display.print("o");
+        display.setCursor(200 + +xOffsetFactor * 12 + 4, 6);
+        display.print("C");
+    }
+
+    display.drawCircle(8, 8, 7, GxEPD_BLACK);
+}
+
+void drawLoadingCircle(const void *pv)
+{
+    // Draw the outer circle
+    int x = 8;
+    int y = 8;
+    int radius = 7;
+
+    uint32_t currentTimestamp = time(NULL);
+
+    uint32_t fillPercent = (currentTimestamp - sunriseTimestamp) / (sunsetTimestamp - sunriseTimestamp) * 100;
+
+    int steps = 20 * fillPercent / 100;
+
+    Serial.printf("Current timestamp: %u, Sunrise: %u, Sunset: %u, Fill percent: %u%%\n", currentTimestamp, sunriseTimestamp, sunsetTimestamp, fillPercent);
+
+    display.setPartialWindow(0, 0, 16, 16);
+
+    display.drawCircle(x, y, radius, GxEPD_BLACK);
+
+    if (currentTimestamp < sunriseTimestamp)
+    {
+        return;
+    }
+    else if (currentTimestamp > sunsetTimestamp)
+    {
+        display.fillCircle(x, y, radius, GxEPD_BLACK);
+    }
+    else
+    {
+
+        // Simulate filling the circle step by step
+        for (uint16_t i = 0; i <= steps; i++)
+        {
+            // Calculate the angle for the current step
+            float angle = (2 * PI * i) / 20;
+
+            // Calculate the end point of the line for this step
+            int16_t xEnd = x + radius * cos(angle);
+            int16_t yEnd = y + radius * sin(angle);
+
+            // Draw a line from the center to the edge
+            display.drawLine(x, y, xEnd, yEnd, GxEPD_BLACK);
+        }
+    }
 }
 
 void drawTimeStr(const void *pv)
@@ -367,7 +477,7 @@ void drawDateStr(const void *pv)
     display.setTextSize(2);
     uint8_t Yoffset = 8;
 
-    display.setPartialWindow(0, 0 + Yoffset, 120, 60);
+    display.setPartialWindow(0, 8 + Yoffset, 120, 60);
     uint8_t x = 0;
     // day
     x = 113 / 2 - day.size() * 6;
@@ -634,6 +744,23 @@ void drawStravaPolyline(const void *pv)
     else
     {
         Serial.println("No course to display");
+        switch (lastAct->type)
+        {
+        case ACTIVITY_TYPE_RUN:
+            display.drawBitmap(150, 250, runningShoeBitmap, 28, 28, GxEPD_BLACK);
+            break;
+        case ACTIVITY_TYPE_BIKE:
+            display.drawBitmap(150, 250, bicycleBitMap, 28, 28, GxEPD_BLACK);
+            break;
+        case ACTIVITY_TYPE_SWIM:
+            display.drawBitmap(150, 250, swimBitmapLarge, 150, 150, GxEPD_BLACK);
+            break;
+        case ACTIVITY_TYPE_RACKET:
+            display.drawBitmap(150, 250, racketBitmapLarge, 150, 150, GxEPD_BLACK);
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -909,7 +1036,10 @@ void drawLastTwelveMonths(const void *pv)
     display.setPartialWindow(0, y - hMax, 300, hMax + 12);
     for (uint8_t i = 0; i < 12; i++)
     {
-        display.drawRect(x, y, w, -(yearMon[i] * hMax / maxMonth), GxEPD_BLACK);
+        if (yearMon[i] > 0)
+        {
+            display.drawRect(x, y, w, -(yearMon[i] * hMax / maxMonth), GxEPD_BLACK);
+        }
         display.setTextSize(1);
         display.setCursor(x + 6, y + 2);
         char monthLetter;
@@ -1475,6 +1605,10 @@ void displayTaskFunction(void *parameter)
             case DISPLAY_MESSAGE_TEMPERATURE:
                 Serial.println("temperature");
                 displayTemperature();
+                break;
+            case DISPLAY_MESSAGE_SUNSET_SUNRISE:
+                Serial.println("sunset sunrise");
+                displaySunsetSunrise();
                 break;
             default:
                 Serial.println("unknown msg");
