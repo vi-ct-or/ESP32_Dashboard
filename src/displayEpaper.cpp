@@ -326,11 +326,12 @@ void drawLoadingCircle(const void *pv)
 
     uint32_t currentTimestamp = time(NULL);
 
-    uint32_t fillPercent = (currentTimestamp - sunriseTimestamp) / (sunsetTimestamp - sunriseTimestamp) * 100;
+    uint32_t fillPercent = ((float)(currentTimestamp - sunriseTimestamp) / (float)(sunsetTimestamp - sunriseTimestamp)) * 100.0;
 
-    int steps = 20 * fillPercent / 100;
+    // fillPercent = 75;                    // for test
+    int steps = 100 * fillPercent / 100; // 20 steps for a full circle
 
-    Serial.printf("Current timestamp: %u, Sunrise: %u, Sunset: %u, Fill percent: %u%%\n", currentTimestamp, sunriseTimestamp, sunsetTimestamp, fillPercent);
+    // Serial.printf("Current timestamp: %u, Sunrise: %u, Sunset: %u, Fill percent: %u%%\n", currentTimestamp, sunriseTimestamp, sunsetTimestamp, fillPercent);
 
     display.setPartialWindow(0, 0, 16, 16);
 
@@ -351,11 +352,24 @@ void drawLoadingCircle(const void *pv)
         for (uint16_t i = 0; i <= steps; i++)
         {
             // Calculate the angle for the current step
-            float angle = (2 * PI * i) / 20;
+            float angle = -PI / 2 + ((2 * PI * i) / 100);
 
             // Calculate the end point of the line for this step
-            int16_t xEnd = x + radius * cos(angle);
-            int16_t yEnd = y + radius * sin(angle);
+            int16_t xEnd = static_cast<int>(std::round(x + radius * cos(angle)));
+            int16_t yEnd = static_cast<int>(std::round(y + radius * sin(angle)));
+            /*if (i == 0 || i == steps)
+            {
+                Serial.print("angle = ");
+                Serial.print(angle);
+                Serial.print(", radius * cos(angle) = ");
+                Serial.print(radius * cos(angle));
+                Serial.print(", radius * sin(angle) = ");
+                Serial.print(radius * sin(angle));
+                Serial.print(", xEnd = ");
+                Serial.print(xEnd);
+                Serial.print(", yEnd = ");
+                Serial.println(yEnd);
+            }*/
 
             // Draw a line from the center to the edge
             display.drawLine(x, y, xEnd, yEnd, GxEPD_BLACK);
