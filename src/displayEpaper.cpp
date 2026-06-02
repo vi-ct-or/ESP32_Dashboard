@@ -929,7 +929,7 @@ void printMultiLine(const char *str, int16_t x, int16_t y, uint16_t lineHeight, 
         if (lineLength == 0 && lineNb == 3)
         {
             // Empty line => double new line =>
-            cursorY += lineHeight / 2;
+            cursorY += lineHeight / 4;
         }
         else
         {
@@ -1390,6 +1390,7 @@ std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uin
                         if (currentNbLine > maxLine)
                         {
                             currentNbLine--;
+                            *nbLine = currentNbLine;
                             return result; // Stop if we exceed the max number of lines
                         }
                         word = word.substr(std::max(maxWidth - currentWidth, 0));
