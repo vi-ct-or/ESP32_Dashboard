@@ -159,10 +159,10 @@ void getWeather(float *airTemp, float *waterTemp, uint32_t *dataAge)
         }
         else
         {
-            if (!doc["current"]["temp"].isNull())
+            if (!doc["temperature"].isNull())
             {
 
-                *airTemp = doc["current"]["temp"].as<float>();
+                *airTemp = doc["temperature"].as<float>();
             }
             else
             {
@@ -179,12 +179,12 @@ void getWeather(float *airTemp, float *waterTemp, uint32_t *dataAge)
                 *waterTemp = 99.0;
             }
 
-            uint32_t timestamp = doc["current"]["dt"].as<uint32_t>();
+            // uint32_t timestamp = doc["current"]["dt"].as<uint32_t>();
 
-            sunriseTimestamp = doc["current"]["sunrise"].as<uint32_t>();
-            sunsetTimestamp = doc["current"]["sunset"].as<uint32_t>();
+            // sunriseTimestamp = doc["current"]["sunrise"].as<uint32_t>();
+            // sunsetTimestamp = doc["current"]["sunset"].as<uint32_t>();
 
-            *dataAge = time(NULL) - timestamp;
+            //*dataAge = time(NULL) - timestamp;
 
             Serial.print("Air temperature : ");
             Serial.println(*airTemp);
@@ -1174,8 +1174,9 @@ void StravaTaskFunction(void *parameter)
                 xQueueSend(xQueueDisplay, &messageDisplay, 0);
 
 #ifdef LOCATION
-                messageDisplay = DISPLAY_MESSAGE_SUNSET_SUNRISE;
-                xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                // no more sunset/sunrise data in request, so no more display of that
+                // messageDisplay = DISPLAY_MESSAGE_SUNSET_SUNRISE;
+                // xQueueSend(xQueueDisplay, &messageDisplay, 0);
 #endif
 
                 break;

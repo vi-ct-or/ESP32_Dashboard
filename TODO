@@ -24,4 +24,5 @@ bearerToken to put in RTC RAM ?
 - add "â" and "°" handling
 - add logo when no polyline OK (for swim, bike, run, racket sports)
 - reset when pressing 5 time on boot OK
-- sunset wheel wip
+- sunset wheel OK
+- wrong time on reset

@@ -249,14 +249,14 @@ void drawTemperature(const void *pv)
     uint8_t xOffsetFactor = 3;
     display.setPartialWindow(100, 0, 170, 16);
 
-    if (tempDataOldness > 3600)
-    {
-        // data is old, display "N/A"
-        display.setTextSize(1);
-        display.setCursor(150, 0);
-        display.print("N/A");
-        return;
-    }
+    // if (tempDataOldness > 3600)
+    // {
+    //     // data is old, display "N/A"
+    //     display.setTextSize(1);
+    //     display.setCursor(150, 0);
+    //     display.print("N/A");
+    //     return;
+    // }
 
     display.setTextSize(2);
 
