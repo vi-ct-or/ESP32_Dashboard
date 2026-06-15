@@ -31,12 +31,12 @@ void testWifi()
 
 bool connectWifi(int timeoutms)
 {
-    DataSave_RetrieveWifiCredentials();
     bool connected = false;
     if (isWifiConnected())
     {
         return true;
     }
+    DataSave_RetrieveWifiCredentials();
     Serial.println("Scanning");
     int n = WiFi.scanNetworks();
     if (n != 0)
