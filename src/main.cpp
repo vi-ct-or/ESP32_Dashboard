@@ -122,11 +122,11 @@ void setup()
   // esp_task_wdt_add(NULL);               // Subscribe to the Task WDT
 
   pinMode(2, OUTPUT);
-  //  digitalWrite(2, HIGH);
   sntp_set_time_sync_notification_cb(cbSyncTime);
 
   wakeup_reason = esp_sleep_get_wakeup_cause();
-  // attachInterrupt(buttonPin, buttonInterrupt, FALLING);
+  Serial.print("Wakeup reason: ");
+  Serial.println(wakeup_reason);
 
   initDisplay();
 
@@ -139,17 +139,11 @@ void setup()
     // FactorySetup_ResetActivities();
     // Serial.println("activities reset");
 
-    if (connectWifi(30000))
+    while (!connectWifi(20000))
     {
-      updateFW();
+      Serial.println("Retrying wifi connection");
     }
-    else
-    {
-      while (!connectWifi(20000))
-      {
-        Serial.println("Retrying wifi connection");
-      }
-    }
+    updateFW();
 
     DataSave_RetreiveLastActivity();
     initDB();
@@ -158,6 +152,7 @@ void setup()
     prevHour = 255;
     prevDay = 255;
 
+    resetClock();
     // esp_task_wdt_reset();
   }
   else

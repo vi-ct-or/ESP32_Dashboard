@@ -4,6 +4,7 @@
 #include "network.h"
 
 RTC_DS3231 rtc;
+RTC_DATA_ATTR bool rtcAvailableFlag = false;
 
 bool setRtcTime()
 {
@@ -39,6 +40,7 @@ bool setRtcTime()
         // Serial.print(':');
         // Serial.print(tm.tm_sec);
         // Serial.println();
+        rtcAvailableFlag = true;
     }
     else
     {
@@ -94,7 +96,7 @@ bool adjustLocalTimeFromRtc()
 bool rtcAvailable()
 {
     bool ret = false;
-    if (rtc.begin() && !rtc.lostPower())
+    if (rtc.begin() && rtcAvailableFlag == true)
     {
         ret = true;
     }
@@ -105,6 +107,15 @@ void resetClock()
 {
     if (rtc.begin())
     {
-        rtc.erase();
+        rtcAvailableFlag = false;
+        rtc.adjust(DateTime(2000, 1, 1, 0, 0, 0));
+        DateTime now = rtc.now();
+        struct tm tmTmp;
+        timeval tv;
+
+        tv.tv_sec = now.unixtime();
+        tv.tv_usec = 0; // set microseconds
+        // set local time to before 2016 to have getLocalTime() return false
+        settimeofday(&tv, NULL);
     }
 }
