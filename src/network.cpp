@@ -93,3 +93,27 @@ void disconnectWifi()
 {
     WiFi.disconnect(true);
 }
+
+TeNetworkStrength getNetworkStrength()
+{
+    TeNetworkStrength ret = NETWORK_STRENGTH_NONE;
+
+    int8_t rssi = WiFi.RSSI();
+    Serial.print("RSSI = ");
+    Serial.println(rssi);
+
+    if (rssi < -80)
+    {
+        ret = NETWORK_STRENGTH_BAD;
+    }
+    else if (rssi < -60)
+    {
+        ret = NETWORK_STRENGTH_MEDIUM;
+    }
+    else
+    {
+        ret = NETWORK_STRENGTH_GOOD;
+    }
+
+    return ret;
+}
