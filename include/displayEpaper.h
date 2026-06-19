@@ -15,7 +15,8 @@ typedef enum eDisplayMessage
     DISPLAY_MESSAGE_REFRESH,
     DISPLAY_MESSAGE_TEMPLATE,
     DISPLAY_MESSAGE_NEW_ACTIVITY,
-    DISPLAY_MESSAGE_STATUS,
+    DISPLAY_MESSAGE_NETWORK_STATUS,
+    DISPLAY_MESSAGE_BATTERY,
     DISPLAY_MESSAGE_TEMPERATURE,
     DISPLAY_MESSAGE_SUNSET_SUNRISE,
 } TeDisplayMessage;
@@ -24,7 +25,8 @@ extern bool hasBeenRefreshed;
 
 void initDisplay(void);
 void displayTemplate();
-void displayStatus();
+void displayNetworkStatus();
+void displayBattery();
 void displayTime(struct tm *now);
 void displayDate(struct tm *now);
 void displayStravaAllYear(struct tm *now);

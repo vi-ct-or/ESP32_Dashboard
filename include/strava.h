@@ -41,6 +41,7 @@ typedef enum eStravaMessage
     STRAVA_MESSAGE_NEW_MONTH,
     STRAVA_MESSAGE_POPULATE,
     STRAVA_MESSAGE_GET_TEMPERATURE,
+    STRAVA_MESSAGE_GET_BATTERY,
     STRAVA_MESSAGE_RESET_ALL,
 } TeStravaMessage;
 extern QueueHandle_t xQueueStrava;

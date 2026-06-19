@@ -10,6 +10,7 @@
 #include "displayEpaper.h"
 #include "dataSave.h"
 #include "RTCTime.h"
+#include "batteryManager.h"
 #include <esp_task_wdt.h>
 #include <algorithm> // std::max
 
@@ -1187,8 +1188,10 @@ void StravaTaskFunction(void *parameter)
                     messageDisplay = DISPLAY_MESSAGE_WEEKS;
                     xQueueSend(xQueueDisplay, &messageDisplay, 0);
                 }
-                messageDisplay = DISPLAY_MESSAGE_STATUS;
+                messageDisplay = DISPLAY_MESSAGE_NETWORK_STATUS;
                 xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                msg = STRAVA_MESSAGE_GET_BATTERY;
+                xQueueSend(xQueueStrava, &msg, 0);
 
 #ifdef LOCATION
                 // no more sunset/sunrise data in request, so no more display of that
@@ -1218,6 +1221,13 @@ void StravaTaskFunction(void *parameter)
                 }
                 break;
             }
+
+            case STRAVA_MESSAGE_GET_BATTERY:
+                Serial.println("battery");
+                getBatteryStatus();
+                messageDisplay = DISPLAY_MESSAGE_BATTERY;
+                xQueueSend(xQueueDisplay, &messageDisplay, 0);
+                break;
 
             case STRAVA_MESSAGE_RESET_ALL:
                 Serial.println("reset all");

@@ -25,4 +25,8 @@ bearerToken to put in RTC RAM ?
 - add logo when no polyline OK (for swim, bike, run, racket sports)
 - reset when pressing 5 time on boot OK
 - sunset wheel OK
-- wrong time on reset
+- wrong time on reset OK
+- battery status (%, tendancy)
+- start end point on polyline
+- polyline missing pixels
+- github cicd

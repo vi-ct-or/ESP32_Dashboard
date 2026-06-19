@@ -9,6 +9,7 @@
 #include "logo.h"
 #include <sys/time.h>
 #include "network.h"
+#include "batteryManager.h"
 #include "Fonts/FreeSans9pt7b.h"
 #include "Fonts/FreeSans12pt7b.h"
 #include "Fonts/FreeSans18pt7b.h"
@@ -28,7 +29,8 @@ int getMaxLng();
 int getMinLat();
 int getMinLng();
 void drawDateStr(const void *pv);
-void drawStatus(const void *pv);
+void drawNetworkStatus(const void *pv);
+void drawBattery(const void *pv);
 void drawTemperature(const void *pv);
 void drawLoadingCircle(const void *pv);
 void drawTimeStr(const void *pv);
@@ -82,9 +84,14 @@ void displayTime(struct tm *now)
     display.drawPaged(drawTimeStr, (const void *)now);
     display.hibernate();
 }
-void displayStatus()
+void displayNetworkStatus()
 {
-    display.drawPaged(drawStatus, 0);
+    display.drawPaged(drawNetworkStatus, 0);
+    display.hibernate();
+}
+void displayBattery()
+{
+    display.drawPaged(drawBattery, 0);
     display.hibernate();
 }
 void displayDate(struct tm *now)
@@ -223,31 +230,102 @@ void drawText(int16_t x, int16_t y, const char *text)
     display.print(text);
 }
 
-void drawStatus(const void *pv)
+void drawNetworkStatus(const void *pv)
 {
-    display.setPartialWindow(270, 0, 30, 16);
+    display.setPartialWindow(280, 0, 20, 16);
+
+    uint16_t xOffset = 280;
+
+    // network status
     if (isWifiConnected())
     {
-        display.drawBitmap(280, 0, networkBitmap, 16, 12, GxEPD_BLACK);
+        TeNetworkStrength strength = getNetworkStrength();
+        display.fillRect(xOffset, 8, 4, 4, GxEPD_BLACK);
+        if (strength == NETWORK_STRENGTH_MEDIUM || strength == NETWORK_STRENGTH_GOOD)
+        {
+            display.fillRect(xOffset + 6, 4, 4, 8, GxEPD_BLACK);
+            if (strength == NETWORK_STRENGTH_GOOD)
+            {
+                display.fillRect(xOffset + 12, 0, 4, 12, GxEPD_BLACK);
+            }
+            else
+            {
+                display.drawRect(xOffset + 12, 0, 4, 12, GxEPD_BLACK);
+            }
+        }
+        else
+        {
+            display.drawRect(xOffset + 6, 4, 4, 8, GxEPD_BLACK);
+            display.drawRect(xOffset + 12, 0, 4, 12, GxEPD_BLACK);
+        }
+
+        // display.drawBitmap(280, 0, networkBitmap, 16, 12, GxEPD_BLACK);
     }
     else
     {
-        display.drawBitmap(280, 0, noNetworkBitmap, 16, 12, GxEPD_BLACK);
+        display.drawRect(xOffset, 8, 4, 4, GxEPD_BLACK);
+        display.drawRect(xOffset + 6, 4, 4, 8, GxEPD_BLACK);
+        display.drawRect(xOffset + 12, 0, 4, 12, GxEPD_BLACK);
+        display.drawLine(xOffset, 0, xOffset + 5, 5, GxEPD_BLACK);
+        display.drawLine(xOffset, 5, xOffset + 5, 0, GxEPD_BLACK);
+
+        // display.drawBitmap(280, 0, noNetworkBitmap, 16, 12, GxEPD_BLACK);
     }
 
-    display.drawRect(5, 2, 20, 12, GxEPD_BLACK);
-
-    display.fillRect(5, 3, 13, 10, GxEPD_BLACK);
-
     // display.setTextSize(1);
-    // display.setCursor(245, 5);
-    // display.print("3.65V");
+    // display.setCursor(260, 5);
+    // display.print(battery);
+    // display.print("%");
+}
+
+void drawBattery(const void *pv)
+{
+
+    display.setPartialWindow(220, 0, 60, 16);
+
+    //  battery status
+    int8_t battPercent = getBatteryPercentage();
+    int8_t prevBattPercent = getPrevBatteryPercentage();
+    display.drawRect(266, 0, 3, 2, GxEPD_BLACK);
+    display.drawRect(264, 2, 7, 10, GxEPD_BLACK);
+    if (battPercent >= 0 && battPercent <= 100)
+    {
+        display.fillRect(264, 12 - battPercent / 10, 7, battPercent / 10, GxEPD_BLACK);
+        if (prevBattPercent >= 0 && prevBattPercent <= 100)
+        {
+            display.setTextSize(1);
+            if (prevBattPercent > battPercent)
+            {
+                // battery discharging
+                display.setCursor(255, 5);
+                display.print("v");
+            }
+            else if (prevBattPercent < battPercent)
+            {
+                // battery charging
+                display.setCursor(255, 3);
+                display.print("^");
+            }
+            else
+            {
+                // battery staying the same
+                display.setCursor(255, 4);
+                display.print("-");
+            }
+        }
+    }
+    else
+    {
+        display.drawLine(262, 0, 272, 12, GxEPD_BLACK);
+        display.drawLine(272, 0, 262, 12, GxEPD_BLACK);
+    }
 }
 
 void drawTemperature(const void *pv)
 {
     uint8_t xOffsetFactor = 3;
-    display.setPartialWindow(100, 0, 170, 16);
+    uint16_t xOffset = 50;
+    display.setPartialWindow(xOffset, 0, 170, 16);
 
     // if (tempDataOldness > 3600)
     // {
@@ -264,7 +342,7 @@ void drawTemperature(const void *pv)
     {
 
         // air Temperature
-        display.setCursor(100, 0);
+        display.setCursor(xOffset, 0);
         display.print(airTemperature, 1);
         display.setTextSize(1);
 
@@ -277,9 +355,9 @@ void drawTemperature(const void *pv)
             xOffsetFactor = 4;
         }
 
-        display.setCursor(100 + xOffsetFactor * 12, -2);
+        display.setCursor(xOffset + xOffsetFactor * 12, -2);
         display.print("o");
-        display.setCursor(100 + xOffsetFactor * 12 + 4, 6);
+        display.setCursor(xOffset + xOffsetFactor * 12 + 4, 6);
         display.print("C");
     }
 
@@ -296,7 +374,7 @@ void drawTemperature(const void *pv)
     {
 
         display.setTextSize(2);
-        display.setCursor(200, 0);
+        display.setCursor(xOffset + 100, 0);
         display.print(waterTemperature, 1);
         display.setTextSize(1);
         if (waterTemperature < -9.9)
@@ -308,13 +386,11 @@ void drawTemperature(const void *pv)
             xOffsetFactor = 4;
         }
 
-        display.setCursor(200 + xOffsetFactor * 12, -2);
+        display.setCursor(xOffset + 100 + xOffsetFactor * 12, -2);
         display.print("o");
-        display.setCursor(200 + +xOffsetFactor * 12 + 4, 6);
+        display.setCursor(xOffset + 100 + xOffsetFactor * 12 + 4, 6);
         display.print("C");
     }
-
-    display.drawCircle(8, 8, 7, GxEPD_BLACK);
 }
 
 void drawLoadingCircle(const void *pv)
@@ -1624,9 +1700,14 @@ void displayTaskFunction(void *parameter)
                 xQueueSend(xQueueDisplay, &msg, 0);
                 break;
 
-            case DISPLAY_MESSAGE_STATUS:
-                Serial.println("status");
-                displayStatus();
+            case DISPLAY_MESSAGE_NETWORK_STATUS:
+                Serial.println("network status");
+                displayNetworkStatus();
+                break;
+
+            case DISPLAY_MESSAGE_BATTERY:
+                Serial.println("battery");
+                displayBattery();
                 break;
 
             case DISPLAY_MESSAGE_TEMPERATURE:
