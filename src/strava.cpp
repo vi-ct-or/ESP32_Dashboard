@@ -43,6 +43,7 @@ struct tm timeinfo;
 RTC_DATA_ATTR bool newActivityUploaded;
 RTC_DATA_ATTR bool activityUpdated = false;
 RTC_DATA_ATTR TsActivity lastActivity;
+std::string polyline = "";
 RTC_DATA_ATTR uint16_t prevKudos = 0;
 RTC_DATA_ATTR uint16_t prevPrevKudos = 0;
 RTC_DATA_ATTR float airTemperature;
@@ -54,6 +55,7 @@ RTC_DATA_ATTR uint32_t sunsetTimestamp;
 QueueHandle_t xQueueStrava;
 SemaphoreHandle_t xSemaphore = NULL;
 SemaphoreHandle_t mutex = NULL;
+SemaphoreHandle_t polylineMutex = NULL;
 
 void printDateTime(struct tm *dateStruct);
 bool getAccessToken(char *ret_token);
@@ -62,7 +64,6 @@ time_t timeStringToTimestamp(char *str);
 void timeStringToTm(const char *str, struct tm *tm);
 TeActivityType getActivityType(const char *str);
 void getYearActivities(time_t start, time_t end);
-void printDB(uint16_t nbDays);
 bool lastActivityUpdated(TsActivity *newActivity);
 void addIdLastActivities(uint64_t id);
 bool isIdLastActivities(uint64_t id);
@@ -437,7 +438,6 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
                     0,                     // timestamp
                     ACTIVITY_TYPE_UNKNOWN, // type
                     "",                    // name
-                    "",                    // polyline
                     0,                     // kudos
                     false                  // isVisible
                 };
@@ -455,7 +455,12 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
 
                     if (array[i]["map"]["summary_polyline"].is<std::string>())
                     {
-                        tmpActivity.polyline = array[i]["map"]["summary_polyline"].as<std::string>();
+                        while (!xSemaphoreTake(polylineMutex, portMAX_DELAY))
+                        {
+                            Serial.println("wait polylineMutex ");
+                        }
+                        polyline = array[i]["map"]["summary_polyline"].as<std::string>();
+                        xSemaphoreGive(polylineMutex);
                     }
                     if (array[i]["name"].is<const char *>())
                     {
@@ -608,7 +613,6 @@ bool lastActivityUpdated(TsActivity *newActivity)
         l_ret = true;
         lastActivity.isVisible = newActivity->isVisible;
     }
-    lastActivity.polyline = newActivity->polyline;
     if (hasBeenRefreshed)
     {
         l_ret = true;
@@ -828,6 +832,14 @@ void printDB(uint16_t nbDays)
         Serial.print("Total : ");
         Serial.println(totalMon / 10000);
     }
+
+    Serial.print("lastActivitiesId : ");
+    for (uint8_t i = 0; i < NB_LAST_ACTIVITIES; i++)
+    {
+        Serial.print(lastActivitiesId[i]);
+        Serial.print(" ; ");
+    }
+    Serial.println();
 }
 
 TeActivityType getActivityType(const char *str)
@@ -998,6 +1010,11 @@ void newMonthBegin()
 TsActivity *getStravaLastActivity()
 {
     return &lastActivity;
+}
+
+std::string *getStravaLastPolyline()
+{
+    return &polyline;
 }
 
 void addIdLastActivities(uint64_t id)

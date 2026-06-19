@@ -699,7 +699,7 @@ void drawFull(const void *pv)
 void drawStravaPolyline(const void *pv)
 {
     TsActivity *lastAct = getStravaLastActivity();
-
+    std::string *lastPolyline = getStravaLastPolyline();
     display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
     if (lastAct == NULL || lastAct->isFilled == false)
     {
@@ -707,17 +707,15 @@ void drawStravaPolyline(const void *pv)
         return;
     }
     Serial.println("lastAct not NULL");
-    if (!lastAct->polyline.empty())
+    if (!lastPolyline->empty())
     {
-        decode(lastAct->polyline.c_str(), lastAct->polyline.size());
+        decode(lastPolyline->c_str(), lastPolyline->size());
         int maxLat = getMaxLat();
         int maxLng = getMaxLng();
         int minLat = getMinLat();
         int minLng = getMinLng();
 
         int maxDiff = max(maxLat - minLat, maxLng - minLng);
-        Serial.print("maxDiff = ");
-        Serial.println(maxDiff);
         if (maxDiff == 0)
         {
             Serial.println("maxDiff is 0, no course to display");
@@ -1545,7 +1543,20 @@ void displayTaskFunction(void *parameter)
                 break;
             case DISPLAY_MESSAGE_POLYLINE:
                 Serial.println("polyline");
-                displayStravaPolyline();
+                if (xSemaphoreTake(polylineMutex, (TickType_t)10))
+                {
+                    displayStravaPolyline();
+
+                    Serial.println("end DISPLAY_MESSAGE_POLYLINE");
+                    xSemaphoreGive(polylineMutex);
+                }
+                else
+                {
+                    // if can't get mutex, retry later, so send the message again
+                    msg = DISPLAY_MESSAGE_POLYLINE;
+                    xQueueSend(xQueueDisplay, &msg, 0);
+                }
+
                 break;
             case DISPLAY_MESSAGE_LAST_ACTIVITY:
                 Serial.println("last act");
@@ -1571,6 +1582,7 @@ void displayTaskFunction(void *parameter)
                 {
                     displayStravaAllYear(&tm);
                 }
+                Serial.println("end DISPLAY_MESSAGE_TOTAL_YEAR");
                 break;
             case DISPLAY_MESSAGE_REFRESH:
                 Serial.println("refresh");

@@ -85,6 +85,7 @@ void setup()
   esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0); // wake up when button is pressed (active low)
 
   mutex = xSemaphoreCreateMutex();
+  polylineMutex = xSemaphoreCreateMutex();
 
   // delay(5000);
   // testWifi();

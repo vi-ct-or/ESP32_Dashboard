@@ -136,7 +136,7 @@ void DataSave_RetreiveLastActivity()
         }
     } while (charPolyline != '\0');
 
-    lastActivity->polyline = polyline;
+    *getStravaLastPolyline() = polyline;
 
     Serial.println("end of DataSave_RetreiveLastactivity");
 }
@@ -198,8 +198,8 @@ void DataSave_SaveLastActivity()
     offset += sizeof(lastActivity->isVisible);
     eep.write(offset, (uint8_t *)&lastActivity->name, sizeof(lastActivity->name));
     offset += sizeof(lastActivity->name);
-    const char *polyline = lastActivity->polyline.c_str();
-    eep.write(offset, (uint8_t *)polyline, lastActivity->polyline.size() + 1);
+    const char *polyline = getStravaLastPolyline()->c_str();
+    eep.write(offset, (uint8_t *)polyline, getStravaLastPolyline()->size() + 1);
 
     Serial.println("end of DataSave_SaveStravaData");
 }
@@ -294,7 +294,7 @@ void DataSave_resetLastActivities()
     lastActivity->isFilled = false;
     lastActivity->isVisible = false;
     memset(lastActivity->name, 0, sizeof(lastActivity->name));
-    lastActivity->polyline.clear();
+    getStravaLastPolyline()->clear();
     eep.write(offset, (uint8_t *)&(lastActivity->deniv), sizeof(lastActivity->deniv));
     offset += sizeof(lastActivity->deniv);
     eep.write(offset, (uint8_t *)&lastActivity->dist, sizeof(lastActivity->dist));
@@ -313,6 +313,6 @@ void DataSave_resetLastActivities()
     offset += sizeof(lastActivity->isVisible);
     eep.write(offset, (uint8_t *)&lastActivity->name, sizeof(lastActivity->name));
     offset += sizeof(lastActivity->name);
-    const char *polyline = lastActivity->polyline.c_str();
-    eep.write(offset, (uint8_t *)polyline, lastActivity->polyline.size() + 1);
+    const char *polyline = getStravaLastPolyline()->c_str();
+    eep.write(offset, (uint8_t *)polyline, getStravaLastPolyline()->size() + 1);
 }

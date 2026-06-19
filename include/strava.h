@@ -1,7 +1,7 @@
 #ifndef STRAVA_H
 #define STRAVA_H
 
-// #define LOCATION
+#define LOCATION
 
 #define MAX_NAME_LENGTH 40
 
@@ -31,7 +31,6 @@ typedef struct sActivity
     time_t timestamp;
     TeActivityType type;
     char name[MAX_NAME_LENGTH];
-    std::string polyline;
     uint32_t kudos;
     bool isVisible;
 } TsActivity;
@@ -47,6 +46,7 @@ typedef enum eStravaMessage
 extern QueueHandle_t xQueueStrava;
 extern SemaphoreHandle_t xSemaphore;
 extern SemaphoreHandle_t mutex;
+extern SemaphoreHandle_t polylineMutex;
 
 #define DAYS_BY_YEAR 366
 #define NB_LAST_ACTIVITIES 20
@@ -72,7 +72,9 @@ void resetDB();
 bool isLastActivityFromToday();
 uint32_t getCurrentStreakDays();
 void test_NVM();
+void printDB(uint16_t nbDays);
 
 TsActivity *getStravaLastActivity();
+std::string *getStravaLastPolyline();
 
 #endif
