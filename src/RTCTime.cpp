@@ -14,7 +14,10 @@ bool setRtcTime()
     uint8_t prevSec;
     if (rtc.begin() && getLocalTime(&tm))
     {
-        rtc.disable32K();
+        if (rtc.isEnabled32K())
+        {
+            rtc.disable32K();
+        }
         prevSec = tm.tm_sec;
         while (prevSec == tm.tm_sec)
         {
