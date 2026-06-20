@@ -28,5 +28,6 @@ bearerToken to put in RTC RAM ?
 - wrong time on reset OK
 - battery status (%, tendancy)
 - start end point on polyline
-- polyline missing pixels
-- github cicd
+- polyline missing pixels OK
+- github cicd OK
+- github release on tag
