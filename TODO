@@ -26,8 +26,8 @@ bearerToken to put in RTC RAM ?
 - reset when pressing 5 time on boot OK
 - sunset wheel OK
 - wrong time on reset OK
-- battery status (%, tendancy)
+- battery status (%, tendancy) OK, to test
 - start end point on polyline
 - polyline missing pixels OK
 - github cicd OK
-- github release on tag
+- github release on tag OK

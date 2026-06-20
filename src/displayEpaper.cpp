@@ -824,6 +824,11 @@ void drawStravaPolyline(const void *pv)
             {
                 display.drawLine(prevx, prevy, x, y, GxEPD_BLACK);
             }
+            if (it == coordList.begin() || std::next(it) == coordList.end())
+            {
+                // first or last point
+                display.fillCircle(x, y, 2, GxEPD_BLACK);
+            }
             prevx = x;
             prevy = y;
         }
