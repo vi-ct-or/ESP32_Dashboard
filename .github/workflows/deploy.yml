@@ -1,0 +1,98 @@
+name: Build and Upload Firmware
+
+on:
+  push:
+    tags:
+        - '**'
+
+permissions:
+  contents: write # Required to upload assets to the Release
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build and Package Firmware
+        env:
+          # Use the release tag name as the version, or fallback to run number
+          RELEASE_TAG: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          echo "=== Building firmware for tag $RELEASE_TAG ==="
+
+          # 1. Set Build Flags (Ported from GitLab)
+          # We use github.run_number for versioning to keep it strictly numeric if needed, 
+          # or use $RELEASE_TAG if your code accepts strings.
+          export PLATFORMIO_BUILD_FLAGS="-DOTA_BUILT_ON_GITHUB -DFIRMWARE_VERSION=$BUILD_NUMBER"
+          echo "PlatformIO build flags: $PLATFORMIO_BUILD_FLAGS"
+
+          # 2. Detect environments (Ported EXACTLY from your GitLab awk script)
+          echo "Detecting environments in platformio.ini..."
+          ENV_LIST=$(awk '/^\[env:/{env=$0} /^# -- CICD IGNORE BUILD --/{exit} {if(env){print substr(env,6,length(env)-6); env=""}}' platformio.ini)
+
+          echo "Environments detected:"
+          echo "$ENV_LIST"
+
+          # Create a directory to hold the final assets
+          mkdir -p release_assets
+
+          # 3. The Build Loop
+          for ENV in $ENV_LIST; do
+            echo "---- Building environment: $ENV ----"
+            pio run -e "$ENV"
+
+            # 4. Rename and Move Artifacts
+            # We look for firmware, partitions, and bootloader
+            for FILE in firmware.bin partitions.bin bootloader.bin; do
+              SRC=".pio/build/$ENV/$FILE"
+              DEST="release_assets/${FILE}"
+              
+              if [ -f "$SRC" ]; then
+                cp "$SRC" "$DEST"
+                echo "SUCCESS: Processed $DEST"
+              else
+                echo "INFO: $SRC not found for this env, skipping."
+              fi
+            done
+          done
+
+      - name: List Artifacts
+        run: ls -l release_assets/
+
+      - name: Upload Assets to Release
+        env:
+          # Authenticate gh with the runner token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Bare tag name
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          # ensure RELEASE_TAG is the bare tag name (in case GITHUB_REF is refs/tags/...)
+          if [ -n "$GITHUB_REF" ] && [ -z "$RELEASE_TAG" ]; then
+            RELEASE_TAG=${GITHUB_REF#refs/tags/}
+          fi
+
+          echo "Uploading assets for tag: $RELEASE_TAG"
+
+          # If release doesn't exist, create it (without assets)
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG not found, creating..."
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes "Automated release for $RELEASE_TAG" || {
+              echo "Failed to create release $RELEASE_TAG"
+              exit 1
+            }
+          else
+            echo "Release $RELEASE_TAG already exists"
+          fi
+
+          # Upload all assets (clobber to replace existing ones)
+          gh release upload "$RELEASE_TAG" release_assets/* --clobber

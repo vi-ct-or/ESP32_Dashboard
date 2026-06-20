@@ -1,7 +1,7 @@
 #ifndef STRAVA_H
 #define STRAVA_H
 
-#define LOCATION
+// #define LOCATION
 
 #define MAX_NAME_LENGTH 40
 
