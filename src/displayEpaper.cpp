@@ -28,6 +28,7 @@ int getMaxLat();
 int getMaxLng();
 int getMinLat();
 int getMinLng();
+void getMinMaxLatLng(int *minLat, int *maxLat, int *minLng, int *maxLng);
 void drawDateStr(const void *pv);
 void drawNetworkStatus(const void *pv);
 void drawBattery(const void *pv);
@@ -168,6 +169,33 @@ void displaySunsetSunrise()
 {
     display.drawPaged(drawLoadingCircle, 0);
     display.hibernate();
+}
+
+void getMinMaxLatLng(int *minLat, int *maxLat, int *minLng, int *maxLng)
+{
+    *minLat = 1800000;
+    *maxLat = -1800000;
+    *minLng = 1800000;
+    *maxLng = -1800000;
+    for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
+    {
+        if (it->lat > *maxLat)
+        {
+            *maxLat = it->lat;
+        }
+        if (it->lng > *maxLng)
+        {
+            *maxLng = it->lng;
+        }
+        if (it->lat < *minLat)
+        {
+            *minLat = it->lat;
+        }
+        if (it->lng < *minLng)
+        {
+            *minLng = it->lng;
+        }
+    }
 }
 
 int getMaxLat()
@@ -785,18 +813,37 @@ void drawStravaPolyline(const void *pv)
     Serial.println("lastAct not NULL");
     if (!lastPolyline->empty())
     {
-        decode(lastPolyline->c_str(), lastPolyline->size());
-        int maxLat = getMaxLat();
-        int maxLng = getMaxLng();
-        int minLat = getMinLat();
-        int minLng = getMinLng();
+        // Stack high water mark check (words remaining). Very small value => stack exhaustion.
+        UBaseType_t before = uxTaskGetStackHighWaterMark(NULL);
+        Serial.printf("stack high water before decode: %u\n", (unsigned)before);
 
+        Serial.println("start decode");
+        decode(lastPolyline->c_str(), lastPolyline->size());
+        Serial.println("end decode");
+
+        UBaseType_t after = uxTaskGetStackHighWaterMark(NULL);
+        Serial.printf("stack high water after decode: %u\n", (unsigned)after);
+
+        if (coordList.empty())
+        {
+            Serial.println("empty coordlist");
+            return;
+        }
+
+        int maxLat, maxLng, minLat, minLng;
+        getMinMaxLatLng(&minLat, &maxLat, &minLng, &maxLng);
+        // int maxLat = getMaxLat();
+        // int maxLng = getMaxLng();
+        // int minLat = getMinLat();
+        // int minLng = getMinLng();
+        Serial.println("before max");
         int maxDiff = max(maxLat - minLat, maxLng - minLng);
         if (maxDiff == 0)
         {
             Serial.println("maxDiff is 0, no course to display");
             return;
         }
+        Serial.println("before min");
         int minDiff = min(maxLat - minLat, maxLng - minLng);
         int offsetV = 0;
         int offsetH = 0;
@@ -815,7 +862,7 @@ void drawStravaPolyline(const void *pv)
         }
 
         int x, y, prevx = -1, prevy = -1;
-
+        Serial.println("before loop it");
         for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
         {
             x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;

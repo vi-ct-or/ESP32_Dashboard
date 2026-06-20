@@ -173,7 +173,7 @@ void setup()
   xTaskCreate(
       TimeTaskFunction, /* Function to implement the task */
       "TimeTask",       /* Name of the task */
-      8192,             /* Stack size in words */
+      4096,             /* Stack size in words */
       NULL,             /* Task input parameter */
       5,                /* Priority of the task */
       &TimeTaskHandle /* Task handle. */);
@@ -181,7 +181,7 @@ void setup()
   xTaskCreate(
       displayTaskFunction, /* Function to implement the task */
       "DisplayTask",       /* Name of the task */
-      8192,                /* Stack size in words */
+      2 * 8192,            /* Stack size in words */
       &taskFinishedCnt,    /* Task input parameter */
       5,                   /* Priority of the task */
       &DisplayTaskHandle /* Task handle. */);

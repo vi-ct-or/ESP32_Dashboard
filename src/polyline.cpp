@@ -3,9 +3,16 @@
 
 std::list<TsCoordinates> coordList = {};
 
-int _trans(const char *arr, int *index)
+int _trans(const char *arr, int *index, int length)
 {
     int result = 0, shift = 0, byte = INT32_MAX, comp;
+
+    // Ensure we don't read past buffer
+    if (*index >= length)
+    {
+        Serial.println("in *index >= length");
+        return 0;
+    }
 
     do
     {
@@ -15,6 +22,7 @@ int _trans(const char *arr, int *index)
         shift += 5;
         comp = result & 1;
     } while (byte >= 0x20);
+
     int ret;
     if (comp)
     {
@@ -36,8 +44,16 @@ void decode(const char *arr, int length)
     coord.lng = 0.0;
     while (index < length)
     {
-        lat_change = _trans(arr, &index);
-        lng_change = _trans(arr, &index);
+        lat_change = _trans(arr, &index, length);
+        lng_change = _trans(arr, &index, length);
+
+        // if index did not advance and we reached the end, break to avoid infinite loop
+        if (index >= length && lat_change == 0 && lng_change == 0)
+        {
+            Serial.println("in if (index >= length && lat_change == 0 && lng_change == ");
+            break;
+        }
+
         lat += lat_change;
         lng += lng_change;
         coord.lat = lat / 10; // (float)factor;
