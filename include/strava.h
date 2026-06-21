@@ -1,7 +1,7 @@
 #ifndef STRAVA_H
 #define STRAVA_H
 
-// #define LOCATION
+#define LOCATION
 
 #define MAX_NAME_LENGTH 40
 
@@ -77,5 +77,6 @@ void printDB(uint16_t nbDays);
 
 TsActivity *getStravaLastActivity();
 std::string *getStravaLastPolyline();
+void setStravaPolyline(std::string poly);
 
 #endif

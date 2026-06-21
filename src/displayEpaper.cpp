@@ -198,55 +198,6 @@ void getMinMaxLatLng(int *minLat, int *maxLat, int *minLng, int *maxLng)
     }
 }
 
-int getMaxLat()
-{
-    int maxLat = -1800000;
-    for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
-    {
-        if (it->lat > maxLat)
-        {
-            maxLat = it->lat;
-        }
-    }
-    return maxLat;
-}
-int getMaxLng()
-{
-    int maxLng = -1800000;
-    for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
-    {
-        if (it->lng > maxLng)
-        {
-            maxLng = it->lng;
-        }
-    }
-    return maxLng;
-}
-int getMinLat()
-{
-    int minLat = 1800000;
-    for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
-    {
-        if (it->lat < minLat)
-        {
-            minLat = it->lat;
-        }
-    }
-    return minLat;
-}
-int getMinLng()
-{
-    int minLng = 1800000;
-    for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
-    {
-        if (it->lng < minLng)
-        {
-            minLng = it->lng;
-        }
-    }
-    return minLng;
-}
-
 void drawText(int16_t x, int16_t y, const char *text)
 {
     int16_t x1, y1;
@@ -813,37 +764,17 @@ void drawStravaPolyline(const void *pv)
     Serial.println("lastAct not NULL");
     if (!lastPolyline->empty())
     {
-        // Stack high water mark check (words remaining). Very small value => stack exhaustion.
-        UBaseType_t before = uxTaskGetStackHighWaterMark(NULL);
-        Serial.printf("stack high water before decode: %u\n", (unsigned)before);
-
-        Serial.println("start decode");
         decode(lastPolyline->c_str(), lastPolyline->size());
-        Serial.println("end decode");
-
-        UBaseType_t after = uxTaskGetStackHighWaterMark(NULL);
-        Serial.printf("stack high water after decode: %u\n", (unsigned)after);
-
-        if (coordList.empty())
-        {
-            Serial.println("empty coordlist");
-            return;
-        }
 
         int maxLat, maxLng, minLat, minLng;
-        getMinMaxLatLng(&minLat, &maxLat, &minLng, &maxLng);
-        // int maxLat = getMaxLat();
-        // int maxLng = getMaxLng();
-        // int minLat = getMinLat();
-        // int minLng = getMinLng();
-        Serial.println("before max");
+        getMinMaxLatLngFromDecode(lastPolyline->c_str(), lastPolyline->size(), &minLat, &maxLat, &minLng, &maxLng);
+
         int maxDiff = max(maxLat - minLat, maxLng - minLng);
         if (maxDiff == 0)
         {
             Serial.println("maxDiff is 0, no course to display");
             return;
         }
-        Serial.println("before min");
         int minDiff = min(maxLat - minLat, maxLng - minLng);
         int offsetV = 0;
         int offsetH = 0;
@@ -861,25 +792,28 @@ void drawStravaPolyline(const void *pv)
             offsetH = (SQUARE_SIZE - pixelLargeur) / 2;
         }
 
-        int x, y, prevx = -1, prevy = -1;
-        Serial.println("before loop it");
-        for (std::list<TsCoordinates>::iterator it = coordList.begin(); it != coordList.end(); ++it)
+        int x, y, prevx = -1, prevy = -1, index = 0, tmpLat = 0, tmpLng = 0;
+        int lastPolylineSize = lastPolyline->size();
+        TsCoordinates coord;
+        coord.lat = 0;
+        coord.lng = 0;
+        while (index < lastPolylineSize)
         {
-            x = 150 + (int)(((float)((it->lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
-            y = 250 + SQUARE_SIZE - (int)(((float)((it->lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - offsetV;
+            coord = continuousDecode(lastPolyline->c_str(), lastPolylineSize, &index, &tmpLat, &tmpLng);
+            x = 150 + (int)(((float)((coord.lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
+            y = 250 + SQUARE_SIZE - (int)(((float)((coord.lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - offsetV;
             if (prevx != -1 && prevy != -1)
             {
                 display.drawLine(prevx, prevy, x, y, GxEPD_BLACK);
             }
-            if (it == coordList.begin() || std::next(it) == coordList.end())
-            {
-                // first or last point
-                display.fillCircle(x, y, 2, GxEPD_BLACK);
-            }
+            // if (it == coordList.begin() || std::next(it) == coordList.end())
+            // {
+            //     // first or last point
+            //     display.fillCircle(x, y, 2, GxEPD_BLACK);
+            // }
             prevx = x;
             prevy = y;
         }
-        coordList.clear();
     }
     else
     {
