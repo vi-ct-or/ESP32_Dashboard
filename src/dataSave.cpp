@@ -18,8 +18,8 @@ Wifi Password 2 -> 32 bytes // addr 97-128
 WIfi SSID 3 -> 32 bytes // addr 129-160
 Wifi Password 3 -> 32 bytes // addr 161-192
 
--- OTA : -> 1 byte
-lastVersion -> 1 byte // addr 500
+-- OTA : -> 3 byte
+lastVersion -> 3 byte // addr 500
 
 -- Strava API credentials
 clientID -> 8 bytes // addr 600-607
@@ -146,7 +146,11 @@ void DataSave_RetrieveOTAData()
     DataSave_Init();
     // Retrieve OTA data
     uint32_t offset = 500; // offset for OTA data
-    eep.read(offset, (uint8_t *)&currentVersion, sizeof(currentVersion));
+    eep.read(offset, (uint8_t *)&currentVersion.major, sizeof(currentVersion.major));
+    offset += sizeof(currentVersion.major);
+    eep.read(offset, (uint8_t *)&currentVersion.minor, sizeof(currentVersion.minor));
+    offset += sizeof(currentVersion.minor);
+    eep.read(offset, (uint8_t *)&currentVersion.patch, sizeof(currentVersion.patch));
 }
 
 void DataSave_RetrieveStravaCredentials()
@@ -209,7 +213,11 @@ void DataSave_SaveOTAData()
     DataSave_Init();
     // Save OTA data
     uint32_t offset = 500; // offset for OTA data
-    eep.write(offset, (uint8_t *)&currentVersion, sizeof(currentVersion));
+    eep.write(offset, (uint8_t *)&currentVersion.major, sizeof(currentVersion.major));
+    offset += sizeof(currentVersion.major);
+    eep.write(offset, (uint8_t *)&currentVersion.minor, sizeof(currentVersion.minor));
+    offset += sizeof(currentVersion.minor);
+    eep.write(offset, (uint8_t *)&currentVersion.patch, sizeof(currentVersion.patch));
 }
 
 void DataSave_SaveStravaCredentials()
@@ -254,8 +262,15 @@ uint8_t DataSave_ResetOTA()
     DataSave_Init();
     uint8_t ret = 0;
     uint32_t offset = 500; // offset for OTA data
-    uint8_t versionZero = 1;
-    ret = eep.write(offset, (uint8_t *)&versionZero, sizeof(versionZero));
+    TsVersion versionZero;
+    versionZero.major = 0;
+    versionZero.minor = 0;
+    versionZero.patch = 0;
+    ret = eep.write(offset, (uint8_t *)&versionZero.major, sizeof(versionZero.major));
+    offset += sizeof(versionZero.major);
+    ret = eep.write(offset, (uint8_t *)&versionZero.minor, sizeof(versionZero.minor));
+    offset += sizeof(versionZero.minor);
+    ret = eep.write(offset, (uint8_t *)&versionZero.patch, sizeof(versionZero.patch));
     return ret;
 }
 

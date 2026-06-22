@@ -5,6 +5,7 @@
 #include "otaUpdate.h"
 #include "strava.h"
 #include "RTCTime.h"
+#include "dataSave.h"
 
 #include <OTA-Hub.hpp>
 #include <OTA-Hub/FOTA-providers/github.hpp>
@@ -13,6 +14,9 @@
 #define OTAGH_REPO_NAME "ESP32_Dashboard"
 #define OTAGH_BEARER "YOUR PRIVATE REPO TOKEN" // Follow the docs if using a private repo. Remove if repo is public.
 
+TsVersion currentVersion;
+TsVersion tmpInVersion = {0};
+
 WiFiClientSecure wifi_client;
 OTAHub::FOTA::GithubProvider provider(
     OTAGH_OWNER_NAME,
@@ -20,6 +24,8 @@ OTAHub::FOTA::GithubProvider provider(
 
 // Define the name for the downloaded firmware file
 #define FILE_NAME "firmware.bin"
+
+bool isNewUpdateAvailable(String incomingVersion);
 
 void updateFW()
 {
@@ -40,7 +46,7 @@ void updateFW()
                        ? "This was built on Git."
                        : "This was built locally.");
 
-    if (details.condition == OTAHub::FOTA::NEW_DIFFERENT)
+    if (isNewUpdateAvailable(details.tag_name))
     {
         displayUpdating(0);
         displayUpdating(1);
@@ -56,7 +62,9 @@ void updateFW()
         {
             Serial.println("Update successful. Restarting...");
             displayUpdating(5);
-            resetDB();
+            currentVersion = tmpInVersion;
+            DataSave_SaveOTAData();
+            // resetDB();
         }
         delay(5000);
         resetClock();
@@ -66,4 +74,52 @@ void updateFW()
     {
         Serial.println("No new update available. Continuing...");
     }
+}
+
+bool isNewUpdateAvailable(String incomingVersion)
+{
+    bool ret = false;
+
+    if (incomingVersion.isEmpty())
+    {
+        Serial.println("incoming version empty : " + incomingVersion);
+        return ret;
+    }
+
+    DataSave_RetrieveOTAData();
+
+    uint8_t tmpIndex = 0;
+    tmpInVersion.major = incomingVersion.substring(tmpIndex, incomingVersion.indexOf(".")).toInt();
+    tmpIndex = incomingVersion.indexOf(".") + 1;
+    tmpInVersion.minor = incomingVersion.substring(tmpIndex, incomingVersion.indexOf(".", tmpIndex)).toInt();
+    tmpIndex = incomingVersion.indexOf(".", tmpIndex) + 1;
+    tmpInVersion.patch = incomingVersion.substring(tmpIndex, incomingVersion.indexOf(".", tmpIndex)).toInt();
+
+    Serial.print("Current version : ");
+    Serial.print(currentVersion.major);
+    Serial.print(".");
+    Serial.print(currentVersion.minor);
+    Serial.print(".");
+    Serial.print(currentVersion.patch);
+    Serial.print(" ; githubVersion : ");
+    Serial.print(tmpInVersion.major);
+    Serial.print(".");
+    Serial.print(tmpInVersion.minor);
+    Serial.print(".");
+    Serial.println(tmpInVersion.patch);
+
+    if (tmpInVersion.major > currentVersion.major)
+    {
+        ret = true;
+    }
+    else if (tmpInVersion.major == currentVersion.major && tmpInVersion.minor > currentVersion.minor)
+    {
+        ret = true;
+    }
+    else if (tmpInVersion.major == currentVersion.major && tmpInVersion.minor == currentVersion.minor && tmpInVersion.patch > currentVersion.patch)
+    {
+        ret = true;
+    }
+
+    return ret;
 }
