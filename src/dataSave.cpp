@@ -143,14 +143,21 @@ void DataSave_RetreiveLastActivity()
 
 void DataSave_RetrieveOTAData()
 {
+    static bool retrieveDone = false;
     DataSave_Init();
     // Retrieve OTA data
-    uint32_t offset = 500; // offset for OTA data
-    eep.read(offset, (uint8_t *)&currentVersion.major, sizeof(currentVersion.major));
-    offset += sizeof(currentVersion.major);
-    eep.read(offset, (uint8_t *)&currentVersion.minor, sizeof(currentVersion.minor));
-    offset += sizeof(currentVersion.minor);
-    eep.read(offset, (uint8_t *)&currentVersion.patch, sizeof(currentVersion.patch));
+
+    if (!retrieveDone)
+    {
+        uint32_t offset = 500; // offset for OTA data
+        eep.read(offset, (uint8_t *)&currentVersion.major, sizeof(currentVersion.major));
+        offset += sizeof(currentVersion.major);
+        eep.read(offset, (uint8_t *)&currentVersion.minor, sizeof(currentVersion.minor));
+        offset += sizeof(currentVersion.minor);
+        eep.read(offset, (uint8_t *)&currentVersion.patch, sizeof(currentVersion.patch));
+
+        retrieveDone = true;
+    }
 }
 
 void DataSave_RetrieveStravaCredentials()

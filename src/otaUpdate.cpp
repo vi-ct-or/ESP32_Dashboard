@@ -123,3 +123,23 @@ bool isNewUpdateAvailable(String incomingVersion)
 
     return ret;
 }
+
+bool isVersionNull()
+{
+    bool ret = false;
+    DataSave_RetrieveOTAData();
+
+    if (currentVersion.major == 0 && currentVersion.minor == 0 && currentVersion.patch == 0)
+    {
+        ret = true;
+    }
+    return ret;
+}
+
+std::string getVersionStr()
+{
+    std::string ret;
+    DataSave_RetrieveOTAData();
+    ret = std::to_string(currentVersion.major) + "." + std::to_string(currentVersion.minor) + "." + std::to_string(currentVersion.patch);
+    return ret;
+}

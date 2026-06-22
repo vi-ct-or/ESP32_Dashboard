@@ -11,5 +11,7 @@ typedef struct sVersion
 
 extern TsVersion currentVersion;
 void updateFW();
+bool isVersionNull();
+std::string getVersionStr();
 
 #endif

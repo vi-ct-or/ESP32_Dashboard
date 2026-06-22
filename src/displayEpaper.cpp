@@ -7,6 +7,7 @@
 #include "strava.h"
 #include "polyline.h"
 #include "logo.h"
+#include "otaUpdate.h"
 #include <sys/time.h>
 #include "network.h"
 #include "batteryManager.h"
@@ -720,6 +721,13 @@ void drawFull(const void *pv)
     display.setFullWindow();
 
     display.setTextSize(1);
+    if (!isVersionNull())
+    {
+        display.setCursor(0, 0);
+        display.print('v');
+        display.print(getVersionStr().c_str());
+    }
+
     display.setCursor(55, 90);
     std::string header = "   Distance      Temps        Denivel";
     header += (char)0xE9;

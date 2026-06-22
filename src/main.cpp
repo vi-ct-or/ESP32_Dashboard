@@ -181,7 +181,7 @@ void setup()
   xTaskCreate(
       displayTaskFunction, /* Function to implement the task */
       "DisplayTask",       /* Name of the task */
-      2 * 8192,            /* Stack size in words */
+      8192,                /* Stack size in words */
       &taskFinishedCnt,    /* Task input parameter */
       5,                   /* Priority of the task */
       &DisplayTaskHandle /* Task handle. */);
