@@ -1018,6 +1018,11 @@ std::string *getStravaLastPolyline()
     return &polyline;
 }
 
+void setStravaPolyline(std::string poly)
+{
+    polyline = poly;
+}
+
 void addIdLastActivities(uint64_t id)
 {
     static uint8_t i = 0;

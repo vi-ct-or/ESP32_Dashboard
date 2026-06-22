@@ -29,6 +29,9 @@ void updateFW()
 
     OTAHub::FOTA::init(wifi_client, provider);
 
+    Serial.print("current build time = ");
+    Serial.println(cvtDate());
+
     // Check OTA for updates
     OTAHub::FOTA::UpdateObject details = OTAHub::FOTA::isUpdateAvailable();
     details.print();

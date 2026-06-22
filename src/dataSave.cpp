@@ -136,7 +136,7 @@ void DataSave_RetreiveLastActivity()
         }
     } while (charPolyline != '\0');
 
-    *getStravaLastPolyline() = polyline;
+    setStravaPolyline(polyline.c_str());
 
     Serial.println("end of DataSave_RetreiveLastactivity");
 }

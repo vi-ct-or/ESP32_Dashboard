@@ -77,5 +77,6 @@ void printDB(uint16_t nbDays);
 
 TsActivity *getStravaLastActivity();
 std::string *getStravaLastPolyline();
+void setStravaPolyline(std::string poly);
 
 #endif
