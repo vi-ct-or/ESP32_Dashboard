@@ -355,7 +355,7 @@ void TimeTaskFunction(void *parameter)
         Serial.println("RTC available");
         adjustLocalTimeFromRtc();
         queueDisplayMessage = DISPLAY_MESSAGE_TIME;
-        xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
+        xQueueSendToFront(xQueueDisplay, &queueDisplayMessage, 0);
         queueDisplayMessage = DISPLAY_MESSAGE_DATE;
         xQueueSend(xQueueDisplay, &queueDisplayMessage, 0);
         queueDisplayMessage = DISPLAY_MESSAGE_TOTAL_YEAR;

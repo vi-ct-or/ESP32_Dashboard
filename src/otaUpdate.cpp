@@ -66,7 +66,6 @@ void updateFW()
             DataSave_SaveOTAData();
             // resetDB();
         }
-        delay(5000);
         resetClock();
         ESP.restart();
     }
