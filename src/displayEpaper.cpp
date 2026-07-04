@@ -763,7 +763,7 @@ void drawStravaPolyline(const void *pv)
 {
     TsActivity *lastAct = getStravaLastActivity();
     std::string *lastPolyline = getStravaLastPolyline();
-    display.setPartialWindow(150, 250, SQUARE_SIZE, SQUARE_SIZE);
+    display.setPartialWindow(150, 249, SQUARE_SIZE, SQUARE_SIZE);
     if (lastAct == NULL || lastAct->isFilled == false)
     {
         Serial.println("lastAct NULL");
@@ -809,7 +809,7 @@ void drawStravaPolyline(const void *pv)
         {
             coord = continuousDecode(lastPolyline->c_str(), lastPolylineSize, &index, &tmpLat, &tmpLng);
             x = 150 + (int)(((float)((coord.lng - minLng) * SQUARE_SIZE)) / (float)maxDiff) + offsetH;
-            y = 250 + SQUARE_SIZE - (int)(((float)((coord.lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - offsetV;
+            y = 249 + SQUARE_SIZE - (int)(((float)((coord.lat - minLat) * SQUARE_SIZE)) / (float)maxDiff) - offsetV;
             if (prevx != -1 && prevy != -1)
             {
                 display.drawLine(prevx, prevy, x, y, GxEPD_BLACK);
