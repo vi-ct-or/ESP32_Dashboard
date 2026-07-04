@@ -380,6 +380,7 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
     Serial.println(fullUrl);
 
     HTTPClient http;
+    http.useHTTP10(true);
     http.begin(fullUrl);
     http.addHeader("Authorization", bearerToken);
 
@@ -388,9 +389,9 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
     if (httpResponseCode == 200)
     {
         Serial.println("YEAH");
-        String resp = http.getString();
         JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, resp.c_str());
+        DeserializationError error = deserializeJson(doc, http.getStream());
+        http.end();
 
         if (error)
         {
@@ -545,16 +546,17 @@ int8_t getLastActivitieDist(time_t start, time_t end, bool isLast)
     }
     else if (httpResponseCode == 429)
     {
+        http.end();
         Serial.println("Too Much requests");
         ret = -2;
     }
     else
     {
+        http.end();
         Serial.println("OHHH");
         ret = -3;
     }
     // esp_task_wdt_reset();
-    http.end();
     return ret;
 }
 
@@ -804,8 +806,8 @@ void getYearActivities(time_t start, time_t end)
             TeDisplayMessage msg;
             msg = DISPLAY_MESSAGE_WEEKS;
             xQueueSend(xQueueDisplay, &msg, 0);
-            // msg = DISPLAY_MESSAGE_TOTAL_YEAR;
-            // xQueueSend(xQueueDisplay, &msg, 0);
+            msg = DISPLAY_MESSAGE_TOTAL_YEAR;
+            xQueueSend(xQueueDisplay, &msg, 0);
             vTaskDelay(50 / portTICK_PERIOD_MS);
         }
     }
