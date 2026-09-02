@@ -31,56 +31,61 @@ void testWifi()
 
 bool connectWifi(int timeoutms)
 {
+    static bool isRetry = false;
     bool connected = false;
     if (isWifiConnected())
     {
         return true;
     }
-    DataSave_RetrieveWifiCredentials();
-    Serial.println("Scanning");
-    int n = WiFi.scanNetworks();
-    if (n != 0)
-    {
-        int index = -1;
-        for (int i = 0; i < nbWifi; i++)
+    if (isRetry == false)
+    { // if we already have tried to connect but network is not connected, don't retry (to save energy)
+        isRetry = true;
+        DataSave_RetrieveWifiCredentials();
+        Serial.println("Scanning");
+        int n = WiFi.scanNetworks();
+        if (n != 0)
         {
-            for (int j = 0; j < n; ++j)
+            int index = -1;
+            for (int i = 0; i < nbWifi; i++)
             {
-                if (strcmp(WiFi.SSID(j).c_str(), ssidArr[i]) == 0)
+                for (int j = 0; j < n; ++j)
                 {
-                    Serial.println("Network found");
-                    index = i;
+                    if (strcmp(WiFi.SSID(j).c_str(), ssidArr[i]) == 0)
+                    {
+                        Serial.println("Network found");
+                        index = i;
+                        break;
+                    }
+                    else
+                    {
+                        Serial.print("Network checked : ");
+                        Serial.println(WiFi.SSID(j).c_str());
+                    }
+                }
+                if (index != -1)
+                {
+                    Serial.println(ssidArr[index]);
+                    Serial.println("Connecting");
+                    WiFi.begin(ssidArr[index], pswdArr[index]);
+                    unsigned long start = millis();
+                    while (millis() - start < timeoutms && !isWifiConnected())
+                        ;
+                    if (isWifiConnected())
+                    {
+                        Serial.println("Connected");
+                        connected = true;
+                    }
+                    else
+                    {
+                        Serial.println("Not connected");
+                    }
+
                     break;
                 }
-                else
-                {
-                    Serial.print("Network checked : ");
-                    Serial.println(WiFi.SSID(j).c_str());
-                }
-            }
-            if (index != -1)
-            {
-                Serial.println(ssidArr[index]);
-                Serial.println("Connecting");
-                WiFi.begin(ssidArr[index], pswdArr[index]);
-                unsigned long start = millis();
-                while (millis() - start < timeoutms && !isWifiConnected())
-                    ;
-                if (isWifiConnected())
-                {
-                    Serial.println("Connected");
-                    connected = true;
-                }
-                else
-                {
-                    Serial.println("Not connected");
-                }
-
-                break;
             }
         }
+        WiFi.scanDelete();
     }
-    WiFi.scanDelete();
     return connected;
 }
 
