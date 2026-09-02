@@ -52,6 +52,7 @@ void drawUpdating(const void *pv);
 void drawTimeSync(const void *pv);
 bool isLeap(int year);
 void getYearAndWeek(tm TM, int &YYYY, int &WW);
+std::string speedToSwimPace(double speedKmH);
 std::string speedToPace(double speedKmH);
 std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine);
 std::string replaceSpecialCharacters(const char *inputStr);
@@ -884,6 +885,20 @@ void drawLastActivity(const void *pv)
         display.print("min/km");
         speedOrPace.insert(0, 7 - speedOrPace.size(), ' ');
     }
+    else if (lastActivity->type == ACTIVITY_TYPE_SWIM)
+    {
+        speedOrPace = speedToSwimPace(speed);
+        if (lineNbTitle == 3)
+        {
+            display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2 - heightLetter2 / 2);
+        }
+        else
+        {
+            display.setCursor(98, 267 + (lineNbTitle + 4) * heightLetter2);
+        }
+        display.print("/100");
+        speedOrPace.insert(0, 8 - speedOrPace.size(), ' ');
+    }
     else
     {
         speedOrPace = std::to_string(speed);
@@ -1391,6 +1406,31 @@ void getYearAndWeek(tm TM, int &YYYY, int &WW) // Reference: https://en.wikipedi
             WW = 1;
         }
     }
+}
+
+std::string speedToSwimPace(double speedKmH)
+{
+    if (speedKmH <= 0)
+    {
+        return "Invalid speed"; // Error message for invalid speed
+    }
+
+    // Calculate pace in minutes per 100m
+    double paceInMinutes = 0.1 * 60.0 / speedKmH;
+
+    // Extract minutes and seconds from the pace
+    int minutes = static_cast<int>(paceInMinutes);
+    int seconds = static_cast<int>((paceInMinutes - minutes) * 60); // Convert fractional part to seconds
+
+    // Create the formatted string "x:xx"
+    std::string out = std::to_string(minutes) + ":";
+    if (seconds < 10)
+    {
+        out += "0";
+    }
+    out += std::to_string(seconds);
+
+    return out;
 }
 
 std::string speedToPace(double speedKmH)
