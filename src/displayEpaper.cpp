@@ -57,6 +57,7 @@ std::string speedToPace(double speedKmH);
 std::string addNewLines(const std::string &input, int maxWidth, int maxLine, uint8_t *nbLine);
 std::string replaceSpecialCharacters(const char *inputStr);
 void printMultiLine(const char *str, int16_t x, int16_t y, uint16_t lineHeight, uint8_t lineNb);
+std::string timestampToDate(time_t timestamp);
 
 RTC_DATA_ATTR bool prevGPSSync = false;
 RTC_DATA_ATTR bool firstTime = true;
@@ -994,6 +995,164 @@ void drawLastActivity(const void *pv)
         display.setCursor(108, 400 - 11);
         display.print(streak);
     }
+
+    // date and hour of last activity
+    if (lineNbTitle < 3 && lineNbTitle > 0)
+    {
+        display.setTextSize(1);
+        display.setCursor(1, 260 + 18 + (lineNbTitle - 1) * heightLetter2);
+        display.print(timestampToDate(lastActivity->timestamp).c_str());
+    }
+}
+
+std::string timestampToDate(time_t timestamp)
+{
+    struct tm tmCurrent, tmTimestamp, tmTodayMidnight;
+    getLocalTime(&tmCurrent);
+    time_t currentTimestamp = mktime(&tmCurrent);
+    tmTimestamp = *localtime(&timestamp);
+    tmTodayMidnight = tmCurrent;
+    tmTodayMidnight.tm_hour = 0;
+    tmTodayMidnight.tm_min = 0;
+    tmTodayMidnight.tm_sec = 0;
+    double diffTodayToMidnight = difftime(currentTimestamp, mktime(&tmTodayMidnight));
+
+    double diff = difftime(currentTimestamp, timestamp);
+    bool moreThanAWeek = false;
+    if (diff > 86400 * 6 + diffTodayToMidnight)
+    {
+        moreThanAWeek = true;
+    }
+    std::string out = " ";
+    if (moreThanAWeek)
+    {
+        switch (tmTimestamp.tm_wday)
+        {
+        case 0:
+            out += "Dim";
+            break;
+        case 1:
+            out += "Lun";
+            break;
+        case 2:
+            out += "Mar";
+            break;
+        case 3:
+            out += "Mer";
+            break;
+        case 4:
+            out += "Jeu";
+            break;
+        case 5:
+            out += "Ven";
+            break;
+        case 6:
+            out += "Sam";
+            break;
+        default:
+            break;
+        }
+        out += " ";
+        out += std::to_string(tmTimestamp.tm_mday);
+        out += " ";
+        switch (tmTimestamp.tm_mon)
+        {
+        case 0:
+            out += "Jan";
+            break;
+        case 1:
+            out += "Fév";
+            break;
+        case 2:
+            out += "Mar";
+            break;
+        case 3:
+            out += "Avr";
+            break;
+        case 4:
+            out += "Mai";
+            break;
+        case 5:
+            out += "Jui";
+            break;
+        case 6:
+            out += "Juil";
+            break;
+        case 7:
+            out += "Ao" + (char)0xFB;
+            ;
+            break;
+        case 8:
+            out += "Sep";
+            break;
+        case 9:
+            out += "Oct";
+            break;
+        case 10:
+            out += "Nov";
+            break;
+        case 11:
+            out += "D" + (char)0xE9;
+            out += "c";
+            break;
+        }
+    }
+    else
+    {
+        // less than a week
+        if (tmTimestamp.tm_mday == tmCurrent.tm_mday && tmTimestamp.tm_mon == tmCurrent.tm_mon && tmTimestamp.tm_year == tmCurrent.tm_year)
+        {
+            out += "Aujourd'hui";
+        }
+        else if (tmTimestamp.tm_mday == tmCurrent.tm_mday - 1 && tmTimestamp.tm_mon == tmCurrent.tm_mon && tmTimestamp.tm_year == tmCurrent.tm_year)
+        {
+            out += "Hier";
+        }
+        else if (tmTimestamp.tm_mday == tmCurrent.tm_mday - 2 && tmTimestamp.tm_mon == tmCurrent.tm_mon && tmTimestamp.tm_year == tmCurrent.tm_year)
+        {
+            out += "Avant-hier";
+        }
+        else
+        {
+            switch (tmTimestamp.tm_wday)
+            {
+            case 0:
+                out += "Dimanche";
+                break;
+            case 1:
+                out += "Lundi";
+                break;
+            case 2:
+                out += "Mardi";
+                break;
+            case 3:
+                out += "Mercredi";
+                break;
+            case 4:
+                out += "Jeudi";
+                break;
+            case 5:
+                out += "Vendredi";
+                break;
+            case 6:
+                out += "Samedi";
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    out += " - ";
+
+    out += std::to_string(tmTimestamp.tm_hour);
+    out += ":";
+    if (tmTimestamp.tm_min < 10)
+    {
+        out += "0";
+    }
+    out += std::to_string(tmTimestamp.tm_min);
+
+    return out;
 }
 
 void printMultiLine(const char *str, int16_t x, int16_t y, uint16_t lineHeight, uint8_t lineNb)

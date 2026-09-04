@@ -34,3 +34,5 @@ bearerToken to put in RTC RAM ?
 - web interface for init
 - web interface for settings
 - swim pace (min/100m) OK
+- add date and hour of last activity OK
+- remove data if 0 in last activity
